@@ -208,3 +208,13 @@ results.csv
 fuzz-sources/
 fuzz-datasets/
 fuzz-models/
+
+
+#hierarchical adaptation
+/prepared/
+/fathomnet-yolo-hierarchy/
+/runs/
+/wandb/
+/metadata/worms_snapshot/
+/baseline_records/
+
