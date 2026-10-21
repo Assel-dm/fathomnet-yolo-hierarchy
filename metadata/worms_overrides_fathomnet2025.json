@@ -1,0 +1,41 @@
+{
+  "Terebellidae": {
+    "aphia_id": 982,
+    "reason": "WoRMS has an accepted annelid family and an unaccepted gastropod homonym. FathomNet's own WoRMS name service explicitly returns aphiaId=982 and acceptedAphiaId=982 for the dataset label Terebellidae.",
+    "evidence_url": "https://database.fathomnet.org/worms/taxa/info/Terebellidae",
+    "evidence_retrieved_date_utc": "2026-10-19",
+    "evidence_response": {
+      "name": "Terebellidae",
+      "rank": "",
+      "aphiaId": 982,
+      "acceptedAphiaId": 982,
+      "alternateNames": ["\u30d5\u30b5\u30b4\u30ab\u30a4\u79d1"]
+    }
+  },
+  "Umbellula": {
+    "aphia_id": 1757986,
+    "reason": "WoRMS includes accepted animal and plant homonyms. FathomNet's own WoRMS name service explicitly returns aphiaId=1757986 and acceptedAphiaId=1757986 for Umbellula, selecting the animal genus rather than red algae AphiaID604610.",
+    "evidence_url": "https://database.fathomnet.org/worms/taxa/info/Umbellula",
+    "evidence_retrieved_date_utc": "2026-10-19",
+    "evidence_response": {
+      "name": "Umbellula",
+      "rank": "Genus",
+      "aphiaId": 1757986,
+      "acceptedAphiaId": 1757986,
+      "alternateNames": []
+    }
+  },
+  "Zoantharia": {
+    "aphia_id": 607338,
+    "reason": "WoRMS includes the accepted order Zoantharia and an unaccepted usage referring to Hexacorallia. FathomNet's own WoRMS name service explicitly returns aphiaId=607338 and acceptedAphiaId=607338, rank Order.",
+    "evidence_url": "https://database.fathomnet.org/worms/taxa/info/Zoantharia",
+    "evidence_retrieved_date_utc": "2026-10-19",
+    "evidence_response": {
+      "name": "Zoantharia",
+      "rank": "Order",
+      "aphiaId": 607338,
+      "acceptedAphiaId": 607338,
+      "alternateNames": ["zoanthids", "Krustenanemonen", "zoanthaires", "encrusting anemones", "\u30b9\u30ca\u30ae\u30f3\u30c1\u30e3\u30af\u76ee", "korstanemonen", "colonial anemones", "zoanthids"]
+    }
+  }
+}
