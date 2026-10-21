@@ -1,0 +1,14 @@
+model: yolo11s.pt
+data: prepared/fathomnet/data.yaml
+epochs: 100
+imgsz: 640
+batch: 16
+device: '0'
+workers: 4
+seed: 42
+deterministic: true
+patience: 0
+project: fathomnet-yolo-hierarchy
+name: yolo11s_native_seed42
+save: true
+plots: true
