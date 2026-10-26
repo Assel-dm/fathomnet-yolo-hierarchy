@@ -217,6 +217,8 @@ CFG_FLOAT_KEYS = frozenset(
         "time",
         "workspace",
         "batch",
+        "hxe_weight",
+        "hxe_alpha",
     }
 )
 CFG_FRACTION_KEYS = frozenset(
