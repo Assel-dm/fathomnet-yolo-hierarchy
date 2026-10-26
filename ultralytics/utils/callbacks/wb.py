@@ -1,6 +1,7 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 import sys
+import torch
 
 from ultralytics.utils import TESTS_RUNNING
 from ultralytics.utils.torch_utils import (model_info_for_loggers, unwrap_model)
@@ -130,7 +131,8 @@ def _log_hxe_components(model, prefix, step):
     bce_sum, hxe_sum, batches = (
         stats.detach().cpu().tolist()
     )
-    stats.zero_()
+    with torch.inference_mode():
+        stats.zero_()
 
     if batches == 0:
         return
