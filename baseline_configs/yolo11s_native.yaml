@@ -3,7 +3,7 @@ data: prepared/fathomnet/data.yaml
 epochs: 100
 imgsz: 640
 batch: 16
-device: '0'
+device: "0"
 workers: 4
 seed: 42
 deterministic: true

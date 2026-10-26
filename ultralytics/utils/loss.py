@@ -361,28 +361,26 @@ class PositiveHXELoss(nn.Module):
         if not math.isfinite(alpha) or alpha < 0:
             raise ValueError("hxe_alpha must be finite and positive of null")
 
-        paths = [
-            taxonomy.paths[node]
-            for node in taxonomy.class_node_ids
-        ]
+        paths = [taxonomy.paths[node] for node in taxonomy.class_node_ids]
         num_classes = len(paths)
         max_depth = max(len(path) - 1 for path in paths)
 
         # Unused positions represent root/root: their contribution is zero
         numerator = torch.ones(
-            num_classes, max_depth, num_classes,
+            num_classes,
+            max_depth,
+            num_classes,
             dtype=torch.bool,
         )
         denominator = torch.ones_like(numerator)
         weights = torch.zeros(
-            num_classes, max_depth,
+            num_classes,
+            max_depth,
             dtype=torch.float32,
         )
 
         for target, path in enumerate(paths):
-            for level, (parent, child) in enumerate(
-                zip(path[:-1], path[1:])
-            ):
+            for level, (parent, child) in enumerate(zip(path[:-1], path[1:])):
                 numerator[target, level] = torch.tensor(
                     [child in other_path for other_path in paths],
                     dtype=torch.bool,
@@ -391,9 +389,7 @@ class PositiveHXELoss(nn.Module):
                     [parent in other_path for other_path in paths],
                     dtype=torch.bool,
                 )
-                weights[target, level] = math.exp(
-                    -alpha * (level + 1)
-                )
+                weights[target, level] = math.exp(-alpha * (level + 1))
 
         self.register_buffer("numerator_mask", numerator)
         self.register_buffer("denominator_mask", denominator)
@@ -404,21 +400,15 @@ class PositiveHXELoss(nn.Module):
         targets = targets.long()
 
         log_numerator = torch.logsumexp(
-            z.masked_fill(
-                ~self.numerator_mask[targets], -torch.inf
-            ),
+            z.masked_fill(~self.numerator_mask[targets], -torch.inf),
             dim=-1,
         )
         log_denominator = torch.logsumexp(
-            z.masked_fill(
-                ~self.denominator_mask[targets], -torch.inf
-            ),
+            z.masked_fill(~self.denominator_mask[targets], -torch.inf),
             dim=-1,
         )
-        return (
-            (log_denominator - log_numerator)
-            * self.weights[targets]
-        ).sum(dim=-1)
+        return ((log_denominator - log_numerator) * self.weights[targets]).sum(dim=-1)
+
 
 class v8DetectionLoss:
     """Criterion class for computing training losses for YOLOv8 object detection."""
@@ -459,32 +449,26 @@ class v8DetectionLoss:
         self.proj = torch.arange(m.reg_max, dtype=torch.float, device=device)
         self.hxe_weight = float(getattr(h, "hxe_weight", 0.0))
 
-        if (
-            not math.isfinite(self.hxe_weight)
-            or self.hxe_weight < 0
-        ):
-            raise ValueError(
-                "hxe_weight doit être fini et positif ou nul"
-            )
+        if not math.isfinite(self.hxe_weight) or self.hxe_weight < 0:
+            raise ValueError("hxe_weight doit être fini et positif ou nul")
         self.hxe = None
         self.hxe_epoch_stats = None
 
         if self.hxe_weight > 0:
-            from fathomnet_yolo.taxonomy import Taxonomy        
+            from fathomnet_yolo.taxonomy import Taxonomy
+
             if not h.hxe_taxonomy:
-                raise ValueError(
-                    "hxe_taxonomy required when hxe_weight > 0"
-                )
+                raise ValueError("hxe_taxonomy required when hxe_weight > 0")
             taxonomy = Taxonomy.from_json(
                 Path(h.hxe_taxonomy).expanduser(),
                 class_names=model.names,
             )
-        
+
             self.hxe = PositiveHXELoss(
                 taxonomy,
                 alpha=h.hxe_alpha,
             ).to(device)
-        
+
             self.hxe_epoch_stats = torch.zeros(3, device=device)
 
     def preprocess(self, targets: torch.Tensor, batch_size: int, scale_tensor: torch.Tensor) -> torch.Tensor:
@@ -558,39 +542,33 @@ class v8DetectionLoss:
 
         target_scores_sum = target_scores.sum().clamp_(min=1)  # on the device: no host sync
 
-        #Native BCE + class ponderation
+        # Native BCE + class ponderation
         bce_loss = self.bce(
             pred_scores,
             target_scores.to(dtype),
         )
-        
+
         if self.class_weights is not None:
             bce_loss *= self.class_weights
-        
+
         bce_raw = bce_loss.sum() / target_scores_sum
         loss[1] = bce_raw
-        
+
         if self.hxe is not None:
             positive_logits = pred_scores[fg_mask]
             positive_targets = target_labels[fg_mask].long()
-        
+
             per_positive_hxe = self.hxe(
                 positive_logits,
                 positive_targets,
             )
-        
-            quality = (
-                target_scores.sum(dim=-1)[fg_mask]
-                .detach()
-                .float()
-            )
-        
-            hxe_raw = (
-                quality * per_positive_hxe
-            ).sum() / target_scores_sum.float()
-        
+
+            quality = target_scores.sum(dim=-1)[fg_mask].detach().float()
+
+            hxe_raw = (quality * per_positive_hxe).sum() / target_scores_sum.float()
+
             loss[1] = bce_raw + self.hxe_weight * hxe_raw
-        
+
             with torch.no_grad():
                 self.hxe_epoch_stats += torch.stack(
                     (
