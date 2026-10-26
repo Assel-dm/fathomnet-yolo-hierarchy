@@ -3,7 +3,7 @@
 import sys
 
 from ultralytics.utils import TESTS_RUNNING
-from ultralytics.utils.torch_utils import model_info_for_loggers
+from ultralytics.utils.torch_utils import (model_info_for_loggers, unwrap_model)
 
 try:
     assert not TESTS_RUNNING  # do not log pytest
@@ -118,6 +118,37 @@ def _log_plots(plots, step):
             _processed_plots[name] = timestamp
 
 
+def _log_hxe_components(model, prefix, step):
+    criterion = getattr(
+        unwrap_model(model), "criterion", None
+    )
+    stats = getattr(
+        criterion, "hxe_epoch_stats", None
+    )
+    if stats is None:
+        return
+    bce_sum, hxe_sum, batches = (
+        stats.detach().cpu().tolist()
+    )
+    stats.zero_()
+
+    if batches == 0:
+        return
+    bce = bce_sum / batches
+    hxe = hxe_sum / batches
+    gain = criterion.hyp.cls
+
+    wb.run.log(
+        {
+            f"{prefix}/cls_bce_loss": gain * bce,
+            f"{prefix}/hxe_raw": hxe,
+            f"{prefix}/hxe_loss": (
+                gain * criterion.hxe_weight * hxe
+            ),
+        },
+        step=step,
+    )
+
 def on_pretrain_routine_end(trainer):
     """Initialize and start wandb project if module is present.
 
@@ -149,6 +180,7 @@ def on_fit_epoch_end(trainer):
     """Log plots, validation metrics, and (on the first epoch) model information at the end of each fit epoch."""
     _log_plots(trainer.plots, step=trainer.epoch + 1)
     _log_plots(trainer.validator.plots, step=trainer.epoch + 1)
+    _log_hxe_components(trainer.ema.ema, "val", trainer.epoch + 1,)
     if trainer.epoch == 0:
         wb.run.log(model_info_for_loggers(trainer), step=trainer.epoch + 1)
     wb.run.log(trainer.metrics, step=trainer.epoch + 1, commit=True)  # commit forces sync
@@ -156,6 +188,7 @@ def on_fit_epoch_end(trainer):
 
 def on_train_epoch_end(trainer):
     """Log training losses and learning rates at each training epoch end."""
+    _log_hxe_components(trainer.model, "train", trainer.epoch + 1,)
     wb.run.log(trainer.label_loss_items(trainer.tloss, prefix="train"), step=trainer.epoch + 1)
     wb.run.log(trainer.lr, step=trainer.epoch + 1)
 
