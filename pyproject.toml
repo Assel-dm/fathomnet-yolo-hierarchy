@@ -194,7 +194,7 @@ ultralytics = "ultralytics.cfg:entrypoint"
 
 # Tools settings -------------------------------------------------------------------------------------------------------
 [tool.setuptools]  # configuration specific to the `setuptools` build backend.
-packages = { find = { where = ["."], include = ["ultralytics", "ultralytics.*"] } }
+packages = { find = { where = ["."], include = ["ultralytics", "ultralytics.*", "fathomnet_yolo, fathomnet_yolo.*] } }
 package-data = { "ultralytics" = ["**/*.yaml", "**/*.sh"], "ultralytics.assets" = ["*.jpg"], "ultralytics.solutions.templates" = ["*.html"]}
 
 [tool.setuptools.dynamic]
