@@ -1,4 +1,4 @@
-"""Build and freeze a WoRMS taxonomy from COCO category names"""
+"""Build and freeze a WoRMS taxonomy from COCO category names."""
 
 import argparse
 import hashlib
@@ -17,7 +17,7 @@ MAIN_RANKS = ("kingdom", "phylum", "class", "order", "family", "genus", "species
 
 
 class WormsClient:
-    """Cache source responses with URLs, retrieval timestamps and content hashes"""
+    """Cache source responses with URLs, retrieval timestamps and content hashes."""
 
     def __init__(self, cache_dir, offline=False):
         self.cache_dir = Path(cache_dir)
@@ -26,7 +26,7 @@ class WormsClient:
         self.sources = {}
 
     def get(self, endpoint):
-        """Read one cached response or query the official HTTPS API"""
+        """Read one cached response or query the official HTTPS API."""
         url = f"{BASE_URL}/{endpoint}"
         key = hashlib.sha256(url.encode()).hexdigest()
         path = self.cache_dir / f"{key}.json"
@@ -68,7 +68,7 @@ class WormsClient:
 
 
 def resolve_name(name, client, override=None):
-    """Return an accepted record, rejecting uncertain matches and silent aliases"""
+    """Return an accepted record, rejecting uncertain matches and silent aliases."""
     if override is not None:
         if not isinstance(override, dict) or type(override.get("aphia_id")) is not int or not override.get("reason"):
             raise ValueError(f"Override for {name!r} needs aphia_id and a documented reason")
@@ -99,7 +99,7 @@ def resolve_name(name, client, override=None):
 
 
 def flatten_classification(classification, accepted_id):
-    """Flatten the nested WoRMS ``child`` chain into a list and verify its terminal taxon"""
+    """Flatten the nested WoRMS ``child`` chain into a list and verify its terminal taxon."""
     lineage, seen = [], set()
     node = classification
     while node:
@@ -117,10 +117,9 @@ def flatten_classification(classification, accepted_id):
 def build_taxonomy(categories, client, overrides=None, source=None):
     """Resolve COCO categories, then retain seven principal ranks and target taxa.
 
-    Extra-rank targets (for example subfamilies) remain real nodes and are kept
-    in every relevant descendant path. Such paths extend the seven-rank FGVC
-    convention and may change edge distances; this policy is saved explicitly
-    Original dataset labels and category IDs remain in ``classes``
+    Extra-rank targets (for example subfamilies) remain real nodes and are kept in every relevant descendant path. Such
+    paths extend the seven-rank FGVC convention and may change edge distances; this policy is saved explicitly Original
+    dataset labels and category IDs remain in ``classes``
     """
     overrides = overrides or {}
     if not categories or any(type(category.get("id")) is not int for category in categories):
@@ -200,7 +199,7 @@ def build_taxonomy(categories, client, overrides=None, source=None):
 
 
 def validate_class_map(taxonomy, class_map):
-    """Require the exact YOLO IDs, source category IDs and names from preparation"""
+    """Require the exact YOLO IDs, source category IDs and names from preparation."""
     if not isinstance(class_map, list) or not class_map:
         raise ValueError("class_map must be a nonempty list produced by data_prepare")
     for entry in class_map:
@@ -232,7 +231,7 @@ def validate_class_map(taxonomy, class_map):
 
 
 def main():
-    """Build a frozen taxonomy without downloading images or training a model"""
+    """Build a frozen taxonomy without downloading images or training a model."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--coco", type=Path, required=True, help="COCO JSON containing all named categories")
     parser.add_argument("--class-map", type=Path, required=True, help="class_map.json produced by data_prepare")

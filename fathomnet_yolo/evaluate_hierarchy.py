@@ -1,4 +1,4 @@
-"""Evaluate a native YOLO11 checkpoint without changing its training or detection AP
+"""Evaluate a native YOLO11 checkpoint without changing its training or detection AP.
 
 Run from the repository root, for example::
 
@@ -25,7 +25,7 @@ from ultralytics.utils.files import increment_path
 
 
 class HierarchyDetectionValidator(DetectionValidator):
-    """Keep native AP and add an independent class-agnostic hierarchy diagnostic"""
+    """Keep native AP and add an independent class-agnostic hierarchy diagnostic."""
 
     def __init__(self, *args, taxonomy, distance_mode="edge_count", match_iou=0.5, diagnostic_conf=0.25, **kwargs):
         super().__init__(*args, **kwargs)
