@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>FathomNet confusion explorer</title>
+  <style>
+    :root{--ink:#143c4a;--muted:#5c737c;--ocean:#086f98;--deep:#075471;--line:#d6e4e8;--soft:#eef6f8;--paper:#fff;--truth:#087e8b;--prediction:#b57426;--danger:#a74343}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#f4f8f9;color:var(--ink);font:14px/1.5 "Segoe UI",Arial,sans-serif}button,input,select{font:inherit;color:inherit}button{cursor:pointer}a{color:var(--ocean)}button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #45a8cb;outline-offset:3px}button{border:1px solid #cddfe5;background:white;border-radius:6px;padding:7px 10px}button:hover{background:var(--soft);border-color:#8fb9c8}button:disabled{cursor:default;opacity:.45}input,select{background:#fff;border:1px solid #c7dbe2;border-radius:5px;padding:7px 8px;min-height:36px}input[type=number]{width:105px}label{font-size:12px;font-weight:600}h1,h2,h3,p{margin-top:0}h1{font-size:clamp(27px,3vw,38px);font-weight:650;letter-spacing:-.04em;line-height:1.15;margin-bottom:11px}h2{font-size:23px;letter-spacing:-.025em;font-weight:650;margin-bottom:7px}h3{font-size:16px;font-weight:650;margin-bottom:8px}.page{max-width:1680px;margin:auto;padding:28px 32px}.masthead{display:flex;justify-content:space-between;gap:24px;align-items:flex-start}.eyebrow{color:var(--ocean);font-size:11px;letter-spacing:.14em;font-weight:750;text-transform:uppercase;margin-bottom:7px}.intro{max-width:830px;color:var(--muted);margin-bottom:15px}.offline{white-space:nowrap;border:1px solid #cddfe5;border-radius:20px;padding:5px 11px;font-size:11px;color:var(--deep);margin-top:6px}.offline:before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#4d9c95;margin-right:7px}.run-line{font-size:12px;color:var(--muted);overflow-wrap:anywhere;margin-bottom:17px}.run-line strong{color:var(--ink)}.nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}.nav a{border:1px solid var(--line);background:white;border-radius:6px;padding:6px 12px;font-size:12px;text-decoration:none}.nav a:hover{background:var(--soft)}.panel{background:white;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:22px;box-shadow:0 6px 24px #153e4a04;scroll-margin-top:16px}.panel-head{padding:21px 23px 16px;border-bottom:1px solid var(--line)}.panel-body{padding:20px 23px}.caption{color:var(--muted);font-size:12px;margin-bottom:0;max-width:1080px}.controls{display:flex;flex-wrap:wrap;gap:12px 22px;align-items:flex-end}.control{display:flex;flex-direction:column;gap:5px}.control.wide{flex:1;min-width:220px;max-width:430px}.control.inline{flex-direction:row;align-items:center;min-height:36px}.control.inline input{min-height:auto}.toolbar{padding:17px 23px;background:#fbfdfe;border-bottom:1px solid var(--line)}.filter-note{font-size:12px;color:var(--muted);margin:11px 0 0}.filter-note strong{color:var(--ink)}.subtle{font-size:11px;color:var(--muted)}.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin-bottom:16px}.stat{background:var(--soft);border:1px solid #e0ecef;border-radius:8px;padding:13px 15px}.stat strong{display:block;font-size:27px;line-height:1.2;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.025em}.stat span{font-size:11px;color:var(--muted)}.reference{padding:12px 15px;background:#f8fafb;border:1px dashed #cddfe5;border-radius:7px;font-size:12px;color:var(--muted)}.reference strong{color:var(--ink)}.reference p{margin-bottom:4px}.reference p:last-child{margin-bottom:0}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:7px;max-height:490px}.data-table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px}.data-table th,.data-table td{padding:9px 11px;text-align:right;border-bottom:1px solid #e3ecef;vertical-align:middle;font-variant-numeric:tabular-nums}.data-table th{font-size:10px;font-weight:650;color:var(--muted);background:#f6fafb;position:sticky;top:0;z-index:2;white-space:nowrap}.data-table th:first-child,.data-table td:first-child{text-align:left}.data-table tr:last-child td{border-bottom:0}.data-table tbody tr:hover{background:#f5fafc}.data-table .name{min-width:190px;text-align:left}.text-button{border:0;border-radius:3px;padding:1px 0;background:transparent;color:var(--deep);text-align:left;font-weight:600}.text-button:hover{background:transparent;text-decoration:underline}.sort-button{border:0;padding:0;background:transparent;border-radius:2px;font:inherit;color:inherit;text-align:inherit;white-space:nowrap}.sort-button:hover{background:transparent;color:var(--ocean)}.bar-cell{min-width:150px}.bar-content{display:flex;align-items:center;gap:9px;justify-content:flex-end}.bar{width:100px;height:7px;background:#e9f2f5;border-radius:6px;overflow:hidden;text-align:left}.bar>span{display:block;background:#338eab;height:100%;border-radius:6px}.table-note{font-size:11px;color:var(--muted);margin:9px 0 0}.section-top{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:14px}.section-top h3{margin-bottom:4px}.pair-controls{background:#f8fbfc;border:1px solid var(--line);border-radius:8px;padding:13px 16px;margin-bottom:20px}.pair-controls select{min-width:180px}.pair-controls .filter-note{max-width:1100px}.matrix-scroll{position:relative;max-height:660px;overflow:auto;border:1px solid var(--line);border-radius:7px;background:#fff}.matrix{border-collapse:separate;border-spacing:0;font-size:10px;table-layout:fixed}.matrix th,.matrix td{border-right:1px solid #e4edf0;border-bottom:1px solid #e4edf0;padding:0}.matrix thead th{height:175px;position:sticky;top:0;z-index:3;background:#f4f9fb;width:43px;min-width:43px;max-width:43px;vertical-align:bottom}.matrix thead th.corner{left:0;z-index:5;width:235px;min-width:235px;max-width:235px;text-align:left;vertical-align:bottom;padding:11px 12px;font-size:11px}.matrix thead th:not(.corner)>button{writing-mode:vertical-rl;transform:rotate(180deg);height:164px;width:42px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:transparent;border:0;padding:7px 10px;border-radius:0;font-size:10px;font-weight:600}.matrix tbody th{position:sticky;left:0;z-index:2;background:#f7fafb;width:235px;min-width:235px;max-width:235px;text-align:left}.matrix tbody th button{font-size:11px;font-weight:550;display:block;max-width:234px;width:234px;border:0;background:transparent;border-radius:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;padding:8px 10px}.matrix td{height:35px;min-width:43px;width:43px;text-align:center}.matrix td button{font-size:10px;min-width:42px;width:42px;height:34px;padding:0;border:0;border-radius:0;display:block;font-variant-numeric:tabular-nums;background:transparent;color:inherit}.matrix td button:hover{outline:2px solid var(--ocean);outline-offset:-2px}.matrix td.selected{box-shadow:inset 0 0 0 2px #b57426}.matrix th.class-active{background:#e1eff4}.matrix td.masked{background:#f8fafb!important;color:#b5c4c9!important}.matrix td.hidden-diagonal{background:repeating-linear-gradient(135deg,#f5f8f9,#f5f8f9 4px,#e7eef0 4px,#e7eef0 5px)!important}.matrix-key{display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:11px;color:var(--muted);margin-top:10px}.gradient{display:inline-block;width:100px;height:10px;border-radius:3px;background:linear-gradient(90deg,#edf5f8,#086f98)}.two-columns{display:grid;grid-template-columns:1fr 1fr;gap:20px}.small-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:17px 0 20px}.small-stats .stat strong{font-size:22px}.direction-label{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ocean);margin-bottom:4px}.pair-table-wrap{max-height:350px}.pair-table .name{min-width:140px}.empty{padding:24px 17px;color:var(--muted);font-size:12px;text-align:center}.pair-heading{display:flex;flex-wrap:wrap;gap:9px;align-items:baseline;margin-bottom:7px;font-size:20px;font-weight:650}.pair-heading .true{color:var(--truth)}.pair-heading .predicted{color:var(--prediction)}.pair-heading .arrow{color:#93aab3;font-weight:400}.badge{display:inline-block;padding:3px 8px;border-radius:5px;background:#eef5f7;color:var(--deep);font-size:11px;margin-right:7px;margin-bottom:5px}.pair-summary{font-size:12px;margin:8px 0 0;color:var(--muted)}.path-wrap{overflow:auto;background:#fbfdfe;border:1px solid var(--line);border-radius:8px;margin-top:18px}#pair-path{display:block;width:100%;min-width:720px;height:auto}.path-legend{font-size:11px;color:var(--muted);display:flex;gap:18px;flex-wrap:wrap;margin:9px 0}.path-legend span:before{content:"";display:inline-block;width:14px;height:3px;background:var(--truth);margin-right:6px;vertical-align:middle}.path-legend .prediction:before{background:var(--prediction)}.path-legend .shared:before{background:#90aab5}.ancestor-copy{margin-top:10px;font-size:11px;color:var(--muted);overflow-wrap:anywhere}.ancestor-copy p{margin-bottom:5px}.case-actions{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:23px 0 10px}.case-actions h3{margin-bottom:3px}.case-pagination{display:flex;gap:9px;align-items:center;font-size:11px;color:var(--muted)}#pair-cases{min-width:920px}#pair-cases td{vertical-align:top}#pair-cases .case-image{max-width:300px;min-width:180px;text-align:left;overflow-wrap:anywhere}#pair-cases .case-image strong{font-weight:550}#pair-cases details{font-size:10px;margin-top:3px;color:var(--muted)}#pair-cases summary{cursor:pointer}#pair-cases .top-labels{text-align:left;max-width:250px;min-width:190px;overflow-wrap:anywhere}.footer{display:flex;justify-content:space-between;align-items:flex-start;gap:22px;color:var(--muted);font-size:11px;padding:0 1px 15px}.footer p{max-width:650px}.footer details{max-width:65%;text-align:right}.footer summary{cursor:pointer;color:var(--deep)}.provenance{text-align:left;background:#edf4f6;padding:13px 15px;border-radius:7px;margin-top:8px;overflow-wrap:anywhere;font-size:11px}.provenance p{margin:0 0 7px;max-width:none}.provenance pre{white-space:pre-wrap;overflow-wrap:anywhere;font:10px/1.5 Consolas,monospace}.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}[hidden]{display:none!important}
+    @media(max-width:1000px){.page{padding:23px 18px}.two-columns{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.panel-head,.panel-body,.toolbar{padding-left:17px;padding-right:17px}.footer details{max-width:58%}}
+    @media(max-width:600px){.page{padding:20px 11px}.masthead{gap:12px}.offline{font-size:0;padding:9px;margin-top:3px}.offline:before{margin:0;width:7px;height:7px}.intro{font-size:12px}.nav{gap:6px}.nav a{font-size:11px;padding:6px 8px}.panel-head,.panel-body,.toolbar{padding-left:13px;padding-right:13px}.controls{gap:12px}.control.wide{min-width:100%;max-width:none}.control.wide select{max-width:100%}.stat{padding:11px}.stat strong{font-size:24px}.small-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.small-stats .stat strong{font-size:20px}.section-top{display:block}.matrix-scroll{max-height:560px}.matrix tbody th,.matrix thead th.corner{width:175px;min-width:175px;max-width:175px}.matrix tbody th button{width:174px;max-width:174px;font-size:10px}.footer{display:block}.footer details{max-width:100%;text-align:left}.footer p{margin-bottom:10px}.pair-heading{font-size:17px}.data-table th,.data-table td{padding:8px}.bar{width:65px}.bar-cell{min-width:110px}}
+    @media(max-width:700px){#pair-path{min-width:0}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  </style>
+</head>
+<body>
+<main class="page" id="app-root" data-explorer-root="fathomnet-confusion" data-current-population="0" data-current-errors="0" data-selected-target="" data-selected-prediction="" data-selected-class="">
+  <header class="masthead"><div><p class="eyebrow">FathomNet · One run</p><h1 id="page-title">Where predictions go wrong</h1><p class="intro">Explore matched detection labels, the classes that receive errors, and the taxonomy paths behind each confusion. All views use this one exported run.</p></div><div class="offline" aria-label="Self-contained offline explorer">Offline explorer</div></header>
+  <p class="run-line" id="run-line"></p>
+  <div id="validation-note" class="reference" role="note" hidden style="background:#fff7e9;border-color:#dfc18d;color:#765317;margin-bottom:17px"></div>
+  <nav class="nav" aria-label="Explorer views"><a href="#overview">Error receivers</a><a href="#confusion-matrix">Confusion matrix</a><a href="#class-explorer">Class explorer</a><a href="#pair-details">Pair details</a></nav>
+  <section class="panel" aria-label="Matched population filters">
+    <div class="toolbar"><div class="controls"><div class="control"><label for="confidence-filter">Minimum confidence</label><input id="confidence-filter" type="number" min="0" max="1" step="0.01" value="0"></div><div class="control"><label for="iou-filter">Minimum matched IoU</label><input id="iou-filter" type="number" min="0" max="1" step="0.01" value="0"></div><button id="reset-filters" type="button">Reset filters</button></div><p class="filter-note"><strong>Population filters:</strong> filters existing matches; does not rerun matching/NMS. Thresholds cannot go below the export floors. Every matrix, receiver statistic, and class support uses the remaining matches.</p></div>
+    <div class="panel-body"><div class="stats" id="population-stats" aria-live="polite"></div><div class="reference" id="reference-context"></div></div>
+  </section>
+  <section class="panel" id="overview" aria-labelledby="receiver-heading"><div class="panel-head"><h2 id="receiver-heading">Which classes receive the errors?</h2><p class="caption">Ranked by wrong incoming predictions. A destination's incorrect fraction is wrong incoming count ÷ all matched predictions assigned to that class, including its correct predictions. Click a class to inspect its incoming and outgoing pairs.</p></div><div class="panel-body"><div class="table-wrap"><table class="data-table" id="receiver-table"><thead><tr><th scope="col">Predicted destination</th><th scope="col" aria-sort="descending"><button class="sort-button" data-receiver-sort="incoming">Wrong incoming ↓</button></th><th scope="col"><button class="sort-button" data-receiver-sort="distinct">Distinct true classes</button></th><th scope="col"><button class="sort-button" data-receiver-sort="fraction">Incorrect fraction</button></th><th scope="col"><button class="sort-button" data-receiver-sort="correct">Direct correct</button></th><th scope="col"><button class="sort-button" data-receiver-sort="support">Predicted support</button></th></tr></thead><tbody></tbody></table></div><p class="table-note">Support here means matched boxes in the current population. Zero support is shown as “—” for fractions. Display filters below do not alter this ranking or its denominators.</p></div></section>
+  <section class="panel" aria-label="Pair display filters"><div class="panel-body"><div class="controls"><div class="control"><label for="minimum-pair-count">Minimum pair count</label><input id="minimum-pair-count" type="number" min="1" step="1" value="1"></div><div class="control"><label for="minimum-distance">Minimum taxonomy distance</label><input id="minimum-distance" type="number" min="0" step="1" value="0"></div><div class="control"><label for="relation-filter">Pair relationship</label><select id="relation-filter"><option value="all">All relationships</option><option value="exact">Same class</option><option value="predicted_ancestor">Prediction broader than truth</option><option value="predicted_descendant">Truth broader than prediction</option><option value="other_branch">Different branches</option></select></div><div class="control"><label for="pair-sort">Pair order</label><select id="pair-sort"><option value="count">Count, highest first</option><option value="distance">Distance, largest first</option><option value="name">Class name, A–Z</option></select></div></div><p class="filter-note"><strong>Display filters only:</strong> minimum pair count, distance, and relationship filter pair lists and dim matrix cells. Receiver statistics, class supports, and all row/column denominators stay unchanged. Selected-pair cases always include every remaining population match for that pair.</p></div></section>
+  <section class="panel" id="confusion-matrix" aria-labelledby="matrix-heading"><div class="panel-head"><h2 id="matrix-heading">Full confusion matrix</h2><p class="caption">True classes are rows; predicted classes are columns. Scroll horizontally and vertically to inspect every class. Click a cell for its individual cases; click a row or column label to explore that class.</p></div><div class="toolbar"><div class="controls"><div class="control"><label for="matrix-mode">Cell values</label><select id="matrix-mode"><option value="count">Matched counts</option><option value="row">Row % · given the true class</option><option value="column">Column % · given the predicted class</option></select></div><label class="control inline" for="hide-diagonal"><input type="checkbox" id="hide-diagonal"> Hide diagonal values</label></div><p class="filter-note" id="matrix-denominator-note"></p></div><div class="panel-body"><div id="matrix-container" class="matrix-scroll" tabindex="0" aria-label="Scrollable confusion matrix. True classes in rows, predictions in columns."></div><div class="matrix-key"><span class="gradient" aria-hidden="true"></span><span id="matrix-color-note"></span><span>Hatched cells: hidden diagonal. Pale cells: outside pair display filters.</span></div><p class="table-note" id="matrix-status" aria-live="polite"></p></div></section>
+  <section class="panel" id="class-explorer" aria-labelledby="class-heading"><div class="panel-head"><h2 id="class-heading">Class explorer</h2><p class="caption">Incoming errors come from other true classes and land in the selected class. Outgoing errors start in the selected true class and land elsewhere.</p></div><div class="toolbar"><div class="controls"><div class="control wide"><label for="class-search">Find a class by name or ID</label><input id="class-search" type="search" placeholder="Search class names or IDs…" autocomplete="off"></div><div class="control wide"><label for="class-select">Selected class</label><select id="class-select"></select></div></div><p class="filter-note" id="class-search-status"></p></div><div class="panel-body"><div id="class-summary" class="small-stats"></div><div class="two-columns"><div><span class="direction-label">Incoming · other truth → selected prediction</span><h3 id="incoming-heading">Incoming errors</h3><div class="table-wrap pair-table-wrap"><table class="data-table pair-table" id="incoming-table"><thead><tr><th scope="col">True source</th><th scope="col">Count</th><th scope="col">% selected predictions</th><th scope="col">Distance</th></tr></thead><tbody></tbody></table></div><p class="table-note" id="incoming-status"></p></div><div><span class="direction-label">Outgoing · selected truth → other prediction</span><h3 id="outgoing-heading">Outgoing errors</h3><div class="table-wrap pair-table-wrap"><table class="data-table pair-table" id="outgoing-table"><thead><tr><th scope="col">Predicted destination</th><th scope="col">Count</th><th scope="col">% selected truths</th><th scope="col">Distance</th></tr></thead><tbody></tbody></table></div><p class="table-note" id="outgoing-status"></p></div></div></div></section>
+  <section class="panel" id="pair-details" aria-labelledby="pair-section-heading"><div class="panel-head"><h2 id="pair-section-heading">Pair details</h2><p class="caption">Inspect the two labels in their taxonomy, then review the matched boxes that produced this pair. Image paths are reference text; image files are not embedded.</p></div><div class="panel-body"><div id="pair-empty" class="empty">Select a confusion matrix cell or a directional pair.</div><div id="pair-content" hidden><div class="pair-heading"><span class="true" id="pair-target-name"></span><span class="arrow" aria-label="predicted as">→</span><span class="predicted" id="pair-prediction-name"></span></div><div id="pair-badges"></div><p id="pair-summary" class="pair-summary"></p><p id="pair-display-note" class="table-note"></p><div class="path-wrap"><svg id="pair-path" role="img" aria-labelledby="path-title path-description"><title id="path-title">Taxonomy paths for selected pair</title><desc id="path-description"></desc></svg></div><div class="path-legend"><span>True-class branch</span><span class="prediction">Predicted-class branch</span><span class="shared">Shared ancestors · outlined node is the lowest common ancestor</span></div><div class="ancestor-copy" id="ancestor-copy"></div><div class="case-actions"><div><h3>Individual matched cases</h3><p class="caption" id="case-count"></p></div><div class="case-pagination"><button id="cases-prev" aria-label="Previous cases page">Previous</button><span id="cases-page"></span><button id="cases-next" aria-label="Next cases page">Next</button></div></div><div class="table-wrap"><table class="data-table" id="pair-cases"><thead><tr><th scope="col"><button class="sort-button" data-case-sort="image">Image / full path</button></th><th scope="col"><button class="sort-button" data-case-sort="gt_index">GT index</button></th><th scope="col" aria-sort="descending"><button class="sort-button" data-case-sort="confidence">Confidence ↓</button></th><th scope="col"><button class="sort-button" data-case-sort="iou">IoU</button></th><th scope="col"><button class="sort-button" data-case-sort="distance">Distance</button></th><th scope="col">Top-ranked labels</th></tr></thead><tbody></tbody></table></div></div></div></section>
+  <footer class="footer"><p>One matched box contributes one cell. Missed ground truths and unmatched predictions belong to the fixed reference detection context, outside this matrix. No network access is required.</p><details><summary>Run, protocol, validation &amp; provenance</summary><div class="provenance" id="provenance"></div></details></footer>
+</main>
+<script>
+/*
+Copyright 2010-2023 Mike Bostock
+
+Permission to use, copy, modify, and/or distribute this software for any purpose
+with or without fee is hereby granted, provided that the above copyright notice
+and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+THIS SOFTWARE.
+*/
+__D3_SOURCE__
+</script>
+<script id="confusion-data" type="application/json">__CONFUSION_DATA__</script>
+<script>
+(() => {
+  "use strict";
+  const DATA = JSON.parse(document.getElementById("confusion-data").textContent);
+  const $ = id => document.getElementById(id);
+  const root = $("app-root");
+  const classes = DATA.classes || [];
+  const key = value => String(value);
+  const byId = new Map(classes.map(c => [key(c.id), c]));
+  const nodes = new Map(((DATA.taxonomy || {}).nodes || []).map(n => [key(n.id), n]));
+  const children = new Map([...nodes.keys()].map(id=>[id,[]])), nodeHeights = new Map();
+  for(const [id,node] of nodes)if(node.parent!==null&&node.parent!==undefined&&children.has(key(node.parent)))children.get(key(node.parent)).push(id);
+  function nodeHeight(id){if(nodeHeights.has(id))return nodeHeights.get(id);const descendants=children.get(id)||[],height=descendants.length?1+Math.max(...descendants.map(nodeHeight)):0;nodeHeights.set(id,height);return height;}
+  for(const id of nodes.keys())nodeHeight(id);
+  const index = new Map(classes.map((c, i) => [key(c.id), i]));
+  const allMatches = (DATA.matches || []).filter(m => byId.has(key(m.target)) && byId.has(key(m.prediction)));
+  const protocol = ((DATA.reference || {}).protocol || {});
+  const metrics = ((DATA.reference || {}).metrics || {});
+  const floorConfidence = Number.isFinite(Number(protocol.confidence)) ? Number(protocol.confidence) : 0;
+  const floorIoU = Number.isFinite(Number(protocol.matching_iou)) ? Number(protocol.matching_iou) : 0;
+  const format = n => Number(n).toLocaleString("en-US");
+  const numeric = n => n !== null && n !== undefined && n !== "" && Number.isFinite(Number(n));
+  const percent = (n, d) => d ? (100 * n / d).toFixed(1) + "%" : "—";
+  const decimal = n => numeric(n) ? Number(n).toFixed(3) : "—";
+  const name = id => { const c = byId.get(key(id)); return c ? (c.name || c.accepted_name || key(c.id)) : key(id); };
+  const classLabel = id => name(id) + " [" + id + "]";
+  const classTooltip = id => {const c=byId.get(key(id));return classLabel(id)+(c?.accepted_name&&c.accepted_name!==name(id)?" · accepted taxonomy name: "+c.accepted_name:"");};
+  const pairKey = (t, p) => JSON.stringify([key(t), key(p)]);
+  const relationNames = {exact:"Same class",predicted_ancestor:"Prediction broader than truth",predicted_descendant:"Truth broader than prediction",other_branch:"Different taxonomy branches"};
+  const state = {confidence:floorConfidence, iou:floorIoU, minimumPair:1, minimumDistance:0, relation:"all", pairSort:"count", mode:"count", hideDiagonal:false, selectedClass:null, target:null, prediction:null, receiverSort:"incoming", receiverDescending:true, caseSort:"confidence", caseDescending:true, page:0};
+  let population = [], pairs = new Map(), matrix = [], rows = [], columns = [], stats = [], errorCount = 0, activePathPair = null, pathResizeFrame = 0;
+  const element = (tag, text, className) => { const e = document.createElement(tag); if (text !== undefined && text !== null) e.textContent = text; if (className) e.className = className; return e; };
+  const appendText = (parent, tag, text, className) => { const e = element(tag,text,className); parent.append(e); return e; };
+  const clean = e => e.replaceChildren();
+  const addStat = (parent, label, value) => { const box=element("div",null,"stat"); appendText(box,"strong",value); appendText(box,"span",label); parent.append(box); };
+  function ancestry(classId) {
+    const c = byId.get(key(classId));
+    if (!c) return [];
+    const out = [], seen = new Set();
+    let id = c.node_id;
+    while (id !== null && id !== undefined && !seen.has(key(id))) {
+      seen.add(key(id)); const n = nodes.get(key(id));
+      if (!n) break; out.push(key(n.id)); id = n.parent;
+    }
+    if (out.length) return out.reverse();
+    const supplied = (c.path || []).map(key).filter(id => nodes.has(id));
+    if (supplied.length > 1 && nodes.get(supplied[0]).parent === supplied[1]) supplied.reverse();
+    return supplied;
+  }
+  const paths = new Map(classes.map(c => [key(c.id),ancestry(c.id)]));
+  function pairMeta(t,p, example) {
+    const a = paths.get(key(t)) || [], b = paths.get(key(p)) || [];
+    let shared = 0; while (shared < a.length && shared < b.length && a[shared] === b[shared]) shared++;
+    const same = key(t) === key(p);
+    let relation = same ? "exact" : shared === b.length && b.length ? "predicted_ancestor" : shared === a.length && a.length ? "predicted_descendant" : "other_branch";
+    if (example && example.relation) relation = example.relation;
+    const lca = shared ? a[shared-1] : example && example.lca_id !== undefined && example.lca_id !== null ? key(example.lca_id) : null;
+    const fallbackDistance = same ? 0 : lca !== null ? (DATA.taxonomy || {}).distance_mode === "lca_height" ? nodeHeights.get(lca) ?? null : a.length && b.length && shared ? a.length+b.length-2*shared : null : null;
+    const distance = example && numeric(example.distance) ? Number(example.distance) : fallbackDistance;
+    return {a,b,shared,relation,distance,lca};
+  }
+  function pairVisible(pair) {
+    return pair.count >= state.minimumPair && (state.minimumDistance === 0 || numeric(pair.distance) && Number(pair.distance) >= state.minimumDistance) && (state.relation === "all" || pair.relation === state.relation);
+  }
+  function sortedPairs(list) {
+    return list.sort((a,b) => state.pairSort === "name" ? classLabel(a.target).localeCompare(classLabel(b.target)) || classLabel(a.prediction).localeCompare(classLabel(b.prediction)) : state.pairSort === "distance" ? (numeric(b.distance)?Number(b.distance):-1)-(numeric(a.distance)?Number(a.distance):-1) || b.count-a.count || classLabel(a.target).localeCompare(classLabel(b.target)) : b.count-a.count || classLabel(a.target).localeCompare(classLabel(b.target)) || classLabel(a.prediction).localeCompare(classLabel(b.prediction)));
+  }
+  function updateRoot() {
+    root.dataset.currentPopulation = population.length; root.dataset.currentErrors = errorCount;
+    root.dataset.selectedClass = state.selectedClass === null ? "" : state.selectedClass;
+    root.dataset.selectedTarget = state.target === null ? "" : state.target;
+    root.dataset.selectedPrediction = state.prediction === null ? "" : state.prediction;
+  }
+  function recompute() {
+    population = allMatches.filter(m => Number(m.confidence) >= state.confidence && Number(m.iou) >= state.iou);
+    matrix = classes.map(() => classes.map(() => 0)); rows = classes.map(() => 0); columns = classes.map(() => 0); pairs = new Map(); errorCount = 0;
+    for (const m of population) {
+      const t=key(m.target), p=key(m.prediction), ti=index.get(t), pi=index.get(p), k=pairKey(t,p);
+      matrix[ti][pi]++; rows[ti]++; columns[pi]++; if (t !== p) errorCount++;
+      if (!pairs.has(k)) pairs.set(k,{target:t,prediction:p,count:0,matches:[],...pairMeta(t,p,m)});
+      const pair = pairs.get(k); pair.count++; pair.matches.push(m);
+    }
+    stats = classes.map((c,i) => {const correct=matrix[i][i],incoming=columns[i]-correct;return {id:key(c.id),correct,incoming,support:columns[i],truthSupport:rows[i],outgoing:rows[i]-correct,distinct:matrix.reduce((sum,row,j) => sum+(j!==i && row[i]>0?1:0),0),fraction:columns[i]?incoming/columns[i]:null};});
+    if (state.selectedClass === null && classes.length) state.selectedClass = stats.slice().sort((a,b)=>b.incoming-a.incoming || b.support-a.support)[0].id;
+    if (!population.length) { state.target=null; state.prediction=null; }
+    else if (state.target === null) { const best=sortedPairs([...pairs.values()].filter(p=>p.target!==p.prediction))[0] || sortedPairs([...pairs.values()])[0]; if(best){state.target=best.target;state.prediction=best.prediction;} }
+    state.page=0;
+    updateRoot(); renderPopulation(); renderReceivers(); renderMatrix(); renderClassOptions(); renderClass(); renderPair();
+  }
+  function renderPopulation() {
+    clean($("population-stats"));
+    addStat($("population-stats"),"Remaining matched boxes",format(population.length));
+    addStat($("population-stats"),"Wrong-label matched boxes",format(errorCount));
+    addStat($("population-stats"),"Incorrect fraction of matched boxes",percent(errorCount,population.length));
+    addStat($("population-stats"),"Distinct wrong-label pairs",format([...pairs.values()].filter(p=>p.target!==p.prediction).length));
+    const meanDistance=list=>list.length&&list.every(m=>numeric(m.distance))?(list.reduce((sum,m)=>sum+Number(m.distance),0)/list.length).toFixed(3):"—";
+    addStat($("population-stats"),"AHD@1 · all remaining matched boxes",meanDistance(population));
+    addStat($("population-stats"),"Mistake severity · wrong-label boxes only",meanDistance(population.filter(m=>key(m.target)!==key(m.prediction))));
+  }
+  function renderReference() {
+    const box=$("reference-context"); clean(box);
+    appendText(box,"p","Fixed exported detection context · original export thresholds",null).style.fontWeight="650";
+    appendText(box,"p",[["Ground truths",metrics.num_gt],["Images",metrics.num_images],["Predictions",metrics.num_predictions],["Matched",metrics.num_matched],["Missed ground truths",metrics.num_missed],["Unmatched predictions",metrics.num_unmatched_predictions]].map(([label,value])=>label+": "+(numeric(value)?format(value):"—")).join(" · "));
+    appendText(box,"p","Confidence floor "+floorConfidence+" · matching IoU floor "+floorIoU+" · NMS IoU "+(protocol.nms_iou ?? "—")+" · NMS "+(typeof protocol.nms === "object" ? JSON.stringify(protocol.nms) : protocol.nms ?? "—")+" · max detections "+(protocol.max_det ?? "—")+" · scope: "+(protocol.scope ?? "exported evaluation split")+". These counts remain fixed when filters change.");
+  }
+  function renderReceivers() {
+    const tbody=$("receiver-table").tBodies[0]; clean(tbody);
+    const field=state.receiverSort, direction=state.receiverDescending?-1:1;
+    const ordered=stats.slice().sort((a,b)=>{ const av=a[field],bv=b[field]; if(av===null&&bv!==null)return 1;if(bv===null&&av!==null)return -1;return direction*((av??0)-(bv??0)) || name(a.id).localeCompare(name(b.id)); });
+    const max=Math.max(1,...stats.map(s=>s.incoming));
+    for(const s of ordered){
+    const tr=element("tr"); tr.dataset.class=s.id;tr.dataset.classId=s.id;tr.dataset.incomingErrors=s.incoming;tr.dataset.predictedSupport=s.support;tr.dataset.distinctTrueClasses=s.distinct;tr.dataset.incorrectFraction=s.fraction===null?"":s.fraction;
+      const td=appendText(tr,"td",null,"name"), button=appendText(td,"button",classLabel(s.id),"text-button");button.title=classTooltip(s.id);button.addEventListener("click",()=>selectClass(s.id,true));
+      const barCell=appendText(tr,"td",null,"bar-cell"),wrap=appendText(barCell,"div",null,"bar-content"),bar=appendText(wrap,"span",null,"bar");const fill=appendText(bar,"span");fill.style.width=(100*s.incoming/max)+"%";appendText(wrap,"span",format(s.incoming));
+      appendText(tr,"td",format(s.distinct));appendText(tr,"td",percent(s.incoming,s.support));appendText(tr,"td",format(s.correct));appendText(tr,"td",format(s.support));tbody.append(tr);
+    }
+    document.querySelectorAll("[data-receiver-sort]").forEach(button=>{const active=button.dataset.receiverSort===field;const base={incoming:"Wrong incoming",distinct:"Distinct true classes",fraction:"Incorrect fraction",correct:"Direct correct",support:"Predicted support"}[button.dataset.receiverSort];button.textContent=base+(active?(state.receiverDescending?" ↓":" ↑"):"");button.parentElement.setAttribute("aria-sort",active?(state.receiverDescending?"descending":"ascending"):"none");});
+    if(!classes.length) appendEmptyRow(tbody,6,"No classes were exported.");
+  }
+  function renderMatrix() {
+    const container=$("matrix-container"), scrollLeft=container.scrollLeft, scrollTop=container.scrollTop; clean(container);
+    const table=element("table",null,"matrix");table.setAttribute("aria-label","Confusion matrix: true rows, predicted columns");
+    const caption=appendText(table,"caption","True classes are rows; predicted classes are columns.","sr-only");
+    const head=appendText(table,"thead"),headRow=appendText(head,"tr"),corner=appendText(headRow,"th","Predicted class →\nTrue class ↓","corner");corner.style.whiteSpace="pre-line";corner.scope="col";
+    for(const c of classes){const th=appendText(headRow,"th");th.scope="col";th.dataset.class=key(c.id);const b=appendText(th,"button",classLabel(c.id));b.title="Predicted column: "+classTooltip(c.id);b.addEventListener("click",()=>selectClass(key(c.id),true));}
+    const colorCounts=state.hideDiagonal?matrix.flatMap((row,i)=>row.filter((count,j)=>i!==j)):matrix.flat(),largestCount=Math.max(0,...colorCounts);
+    const body=appendText(table,"tbody"),max=Math.max(1,largestCount);
+    for(let i=0;i<classes.length;i++){
+      const tr=appendText(body,"tr"),th=appendText(tr,"th");th.scope="row";th.dataset.class=key(classes[i].id);const label=appendText(th,"button",classLabel(classes[i].id));label.title="True row: "+classTooltip(classes[i].id);label.addEventListener("click",()=>selectClass(key(classes[i].id),true));
+      for(let j=0;j<classes.length;j++){
+        const t=key(classes[i].id),p=key(classes[j].id),count=matrix[i][j],pair=pairs.get(pairKey(t,p)),td=appendText(tr,"td");td.dataset.target=t;td.dataset.prediction=p;td.dataset.count=count;
+        const value=state.mode==="row" ? percent(count,rows[i]) : state.mode==="column" ? percent(count,columns[j]) : format(count);
+        td.dataset.value=state.mode==="row"?(rows[i]?count/rows[i]:""):state.mode==="column"?(columns[j]?count/columns[j]:""):count;
+        const intensity=state.mode==="row" ? (rows[i]?count/rows[i]:0) : state.mode==="column" ? (columns[j]?count/columns[j]:0) : count/max;
+        td.style.background=d3.interpolateRgb("#f0f7f9","#086f98")(Math.sqrt(intensity));td.style.color=intensity>.28?"#fff":"#466875";
+        const hidden=state.hideDiagonal&&i===j,masked=!pair||!pairVisible(pair);
+        if(masked)td.classList.add("masked");if(hidden)td.classList.add("hidden-diagonal");
+        const b=appendText(td,"button",hidden?"":value);b.dataset.target=t;b.dataset.prediction=p;
+        const description="True: "+classLabel(t)+"; predicted: "+classLabel(p)+"; "+format(count)+" matched boxes; row "+percent(count,rows[i])+" (denominator "+format(rows[i])+"); column "+percent(count,columns[j])+" (denominator "+format(columns[j])+")"+(hidden?"; diagonal display hidden":"")+(masked?"; outside pair display filters":"");
+        b.title=description;b.setAttribute("aria-label",description);b.addEventListener("click",()=>selectPair(t,p,true));
+      }
+    }
+    container.append(table);container.scrollLeft=scrollLeft;container.scrollTop=scrollTop;
+    $("matrix-denominator-note").textContent=state.mode==="row"?"Row percentages divide by every remaining matched box of that true class. Diagonal boxes remain in the denominator when hidden.":state.mode==="column"?"Column percentages divide by every remaining matched prediction assigned to that class. Diagonal boxes remain in the denominator when hidden.":"Counts include all remaining matches. Hide diagonal is display-only; correct boxes always remain in row and column totals.";
+    $("matrix-color-note").textContent=state.mode==="count"?"Color: zero to the largest "+(state.hideDiagonal?"visible ":"")+"count ("+format(largestCount)+")":"Color: 0% to 100%";
+    $("matrix-status").textContent=classes.length+" true rows × "+classes.length+" predicted columns · "+format(population.length)+" remaining matched boxes"+(population.length?"":" · No matches pass the population filters.");
+    updateMatrixSelection();
+  }
+  function updateMatrixSelection(){
+    $("matrix-container").querySelectorAll("td").forEach(td=>td.classList.toggle("selected",td.dataset.target===state.target&&td.dataset.prediction===state.prediction));
+    $("matrix-container").querySelectorAll("th[data-class]").forEach(th=>th.classList.toggle("class-active",th.dataset.class===state.selectedClass));
+  }
+  function renderClassOptions(){
+    const query=$("class-search").value.trim().toLocaleLowerCase(),select=$("class-select");clean(select);
+    const matching=classes.filter(c=>[c.id,c.name,c.accepted_name,c.node_id].some(value=>value!==undefined&&key(value).toLocaleLowerCase().includes(query)));
+    const sorted=matching.slice().sort((a,b)=>name(a.id).localeCompare(name(b.id)));
+    if(state.selectedClass!==null&&!sorted.some(c=>key(c.id)===state.selectedClass)){const c=byId.get(state.selectedClass);if(c)sorted.unshift(c);}
+    for(const c of sorted){const option=appendText(select,"option",classLabel(c.id)+(query&&!matching.includes(c)?" · selected":""));option.value=key(c.id);option.title=classTooltip(c.id);}
+    if(state.selectedClass!==null)select.value=state.selectedClass;
+    $("class-search-status").textContent=query?matching.length+" matching classes. The current selection stays available.":classes.length+" exported classes · supports count matched boxes, not all ground truths.";
+  }
+  function renderClass(){
+    const box=$("class-summary");clean(box);const s=stats.find(s=>s.id===state.selectedClass);
+    if(!s){appendText(box,"p","No class is available.","caption");renderDirection("incoming",[],0);renderDirection("outgoing",[],0);return;}
+    addStat(box,"True support · matched boxes",format(s.truthSupport));addStat(box,"Predicted support · matched boxes",format(s.support));addStat(box,"Direct correct",format(s.correct));addStat(box,"Wrong incoming / all selected predictions",percent(s.incoming,s.support));addStat(box,"Wrong outgoing / all selected truths",percent(s.outgoing,s.truthSupport));addStat(box,"Distinct wrong incoming true classes",format(s.distinct));
+    $("incoming-heading").textContent="Incoming errors to "+name(s.id);$("outgoing-heading").textContent="Outgoing errors from "+name(s.id);
+    const incoming=[...pairs.values()].filter(p=>p.prediction===s.id&&p.target!==s.id),outgoing=[...pairs.values()].filter(p=>p.target===s.id&&p.prediction!==s.id);
+    renderDirection("incoming",incoming,s.support);renderDirection("outgoing",outgoing,s.truthSupport);
+  }
+  function renderDirection(direction,all,denominator){
+    const tbody=$(direction+"-table").tBodies[0];clean(tbody);const visible=sortedPairs(all.filter(pairVisible)),max=Math.max(1,...visible.map(p=>p.count));
+    for(const pair of visible){const tr=element("tr");tr.dataset.target=pair.target;tr.dataset.prediction=pair.prediction;tr.dataset.count=pair.count;const td=appendText(tr,"td",null,"name"),b=appendText(td,"button",classLabel(direction==="incoming"?pair.target:pair.prediction),"text-button");b.addEventListener("click",()=>selectPair(pair.target,pair.prediction,true));const count=appendText(tr,"td",null,"bar-cell"),wrap=appendText(count,"div",null,"bar-content"),bar=appendText(wrap,"span",null,"bar"),fill=appendText(bar,"span");fill.style.width=100*pair.count/max+"%";appendText(wrap,"span",format(pair.count));appendText(tr,"td",percent(pair.count,denominator));appendText(tr,"td",numeric(pair.distance)?format(pair.distance):"—");tbody.append(tr);}
+    if(!visible.length)appendEmptyRow(tbody,4,all.length?"No error pairs pass the display filters.":"No incoming or outgoing error pairs in this population.");
+    $(direction+"-status").textContent=visible.length+" of "+all.length+" error pairs shown · pair count ≥ "+state.minimumPair+" · denominator: "+format(denominator)+" "+(direction==="incoming"?"matched predictions assigned to this class":"matched truths in this class")+", including direct correct boxes.";
+  }
+  function appendEmptyRow(tbody,columns,text){const tr=appendText(tbody,"tr"),td=appendText(tr,"td",text,"empty");td.colSpan=columns;td.style.textAlign="center";}
+  function selectClass(id,scroll){state.selectedClass=key(id);const candidate=sortedPairs([...pairs.values()].filter(p=>p.prediction===state.selectedClass&&p.target!==state.selectedClass&&pairVisible(p)))[0]||sortedPairs([...pairs.values()].filter(p=>p.target===state.selectedClass&&p.prediction!==state.selectedClass&&pairVisible(p)))[0];if(candidate){state.target=candidate.target;state.prediction=candidate.prediction;state.page=0;}updateRoot();renderClassOptions();renderClass();renderPair();updateMatrixSelection();if(scroll)$("class-explorer").scrollIntoView({behavior:"auto",block:"start"});}
+  function selectPair(t,p,scroll){state.target=key(t);state.prediction=key(p);state.page=0;updateRoot();renderPair();updateMatrixSelection();if(scroll)$("pair-details").scrollIntoView({behavior:"auto",block:"start"});}
+  function renderPair(){
+    const available=state.target!==null&&state.prediction!==null;$("pair-empty").hidden=available;$("pair-content").hidden=!available;
+    if(!available){activePathPair=null;clean($("pair-cases").tBodies[0]);$("pair-cases").dataset.totalCases=0;$("case-count").textContent="0 retained cases.";$("cases-page").textContent="0 cases";$("cases-prev").disabled=true;$("cases-next").disabled=true;d3.select($("pair-path")).selectAll("g").remove();$("pair-empty").textContent=population.length?"Select a confusion matrix cell or a directional pair.":"No matches pass the population filters. Lower the thresholds or reset filters to inspect cases.";return;}
+    const pair=pairs.get(pairKey(state.target,state.prediction))||{target:state.target,prediction:state.prediction,count:0,matches:[],...pairMeta(state.target,state.prediction)};
+    $("pair-target-name").textContent="True: "+classLabel(pair.target);$("pair-prediction-name").textContent="Predicted: "+classLabel(pair.prediction);
+    const badges=$("pair-badges");clean(badges);appendText(badges,"span",relationNames[pair.relation]||pair.relation,"badge");appendText(badges,"span","Taxonomy distance: "+(numeric(pair.distance)?format(pair.distance):"unavailable"),"badge");const lca=pair.lca!==null?nodes.get(key(pair.lca)):null;appendText(badges,"span","Lowest common ancestor: "+(lca?lca.name:pair.lca??"unavailable"),"badge");
+    const ti=index.get(pair.target),pi=index.get(pair.prediction);
+    $("pair-summary").textContent=format(pair.count)+" remaining matched boxes · "+percent(pair.count,rows[ti])+" of this true class's matched boxes · "+percent(pair.count,columns[pi])+" of this predicted class's matched boxes. Percentages include the diagonal in their denominators.";
+    const acceptedNames=[["true",pair.target],["predicted",pair.prediction]].flatMap(([role,id])=>{const c=byId.get(id);return c?.accepted_name&&c.accepted_name!==name(id)?[role+": "+c.accepted_name]:[];});
+    if(acceptedNames.length)$("pair-summary").textContent+=" Accepted taxonomy names — "+acceptedNames.join("; ")+". Headers retain the original learned class labels.";
+    $("pair-display-note").textContent=pairVisible(pair)?"This pair passes the display filters.":"This selected pair is outside the display filters. Its case table still shows every remaining population match for the pair.";
+    renderPath(pair);renderCases(pair);
+  }
+  function renderPath(pair){
+    activePathPair=pair;
+    const svg=d3.select($("pair-path"));svg.selectAll("g").remove();
+    const host=$("pair-path").parentElement,availableWidth=Math.max(180,Math.floor(host.clientWidth||960)),compact=availableWidth<720,width=compact?availableWidth:960;
+    const {a,b}=pair,maxDepth=Math.max(a.length,b.length,1),step=compact?64:48,height=70+maxDepth*step;
+    svg.style("min-width",compact?"0":null).attr("viewBox","0 0 "+width+" "+height).attr("data-layout",compact?"compact":"desktop");
+    $("path-description").textContent="True path: "+a.map(id=>nodes.get(id)?.name||id).join(" → ")+". Predicted path: "+b.map(id=>nodes.get(id)?.name||id).join(" → ")+". Shared ancestors meet at the lowest common ancestor.";
+    const g=svg.append("g");
+    if(!a.length&&!b.length){g.append("text").attr("x",width/2).attr("y",55).attr("text-anchor","middle").attr("fill","#5c737c").attr("font-size",12).text(compact?"Taxonomy paths unavailable.":"Taxonomy paths are unavailable for this pair.");}
+    const records=new Map();
+    const register=(path,role)=>path.forEach((id,depth)=>{if(!records.has(id))records.set(id,{id,depth,roles:new Set()});records.get(id).roles.add(role);});register(a,"truth");register(b,"prediction");
+    const position=record=>[record.roles.size===2?width/2:record.roles.has("truth")?width/4:3*width/4,35+record.depth*step];
+    const edges=new Map();
+    for(const [path,role]of[[a,"truth"],[b,"prediction"]])for(let i=1;i<path.length;i++){const k=path[i-1]+"\u0000"+path[i];if(!edges.has(k))edges.set(k,{from:path[i-1],to:path[i],roles:new Set()});edges.get(k).roles.add(role);}
+    for(const edge of edges.values()){const [x1,y1]=position(records.get(edge.from)),[x2,y2]=position(records.get(edge.to));g.append("path").attr("d","M"+x1+","+y1+" V"+(y1+y2)/2+" H"+x2+" V"+y2).attr("fill","none").attr("stroke",edge.roles.size===2?"#90aab5":edge.roles.has("truth")?"#087e8b":"#b57426").attr("stroke-width",edge.roles.size===2?2:2.8);}
+    for(const record of records.values()){
+      const[x,y]=position(record),color=record.roles.size===2?"#648591":record.roles.has("truth")?"#087e8b":"#b57426",isLca=pair.lca!==null&&key(pair.lca)===record.id,n=nodes.get(record.id),node=g.append("g").attr("transform","translate("+x+","+y+")");
+      node.append("circle").attr("r",isLca?7:4.5).attr("fill",isLca?"#fff":color).attr("stroke",isLca?"#647d89":color).attr("stroke-width",isLca?2.5:1);
+      const isTruth=record.roles.size===1&&record.roles.has("truth"),trueEnd=record.id===a[a.length-1],predictedEnd=record.id===b[b.length-1],modelNames=[...(new Set([...(trueEnd?[name(pair.target)]:[]),...(predictedEnd?[name(pair.prediction)]:[])]))],label=modelNames.length?modelNames.join(" / "):n?.name||record.id,endpoint=(trueEnd?" · TRUE":"")+(predictedEnd?" · PREDICTED":"");
+      const limit=compact?Math.max(8,Math.floor(((record.roles.size===2?width:width/2)-24)/7)):32,visible=label.length>limit?label.slice(0,limit-1)+"…":label,labelX=compact?0:isTruth?-13:13,anchor=compact?"middle":isTruth?"end":"start";
+      node.append("text").attr("x",labelX).attr("y",compact?20:4).attr("text-anchor",anchor).attr("fill","#214b5b").attr("font-size",12).attr("font-weight",isLca||endpoint?650:450).attr("paint-order","stroke").attr("stroke","#fbfdfe").attr("stroke-width",4).text(visible);
+      if(endpoint)node.append("text").attr("x",labelX).attr("y",compact?34:18).attr("text-anchor",anchor).attr("fill",color).attr("font-size",9).attr("font-weight",700).text(endpoint.replace(/^ · /,""));
+      node.append("title").text(label+endpoint+" · taxonomy: "+(n?.name||record.id)+" · "+(n?.rank||"unranked")+" · node "+record.id+(isLca?" · lowest common ancestor":""));
+    }
+    const copy=$("ancestor-copy");clean(copy);for(const[label,path]of[["True ancestor path",a],["Predicted ancestor path",b]]){const p=appendText(copy,"p");appendText(p,"strong",label+": ");p.append(document.createTextNode(path.length?path.map(id=>nodes.get(id)?.name||id).join(" → "):"unavailable"));}
+  }
+  function renderCases(pair){
+    const matches=pair.matches.slice().sort((a,b)=>{let result;if(state.caseSort==="image")result=key(a.image??"").localeCompare(key(b.image??""));else{const av=numeric(a[state.caseSort])?Number(a[state.caseSort]):-Infinity,bv=numeric(b[state.caseSort])?Number(b[state.caseSort]):-Infinity;result=av===bv?0:av>bv?1:-1;}return (state.caseDescending?-result:result)||key(a.id??"").localeCompare(key(b.id??""));});
+    const size=20,pages=Math.max(1,Math.ceil(matches.length/size));state.page=Math.max(0,Math.min(state.page,pages-1));const start=state.page*size,visible=matches.slice(start,start+size),tbody=$("pair-cases").tBodies[0];clean(tbody);
+    for(const m of visible){const tr=appendText(tbody,"tr");tr.dataset.matchId=key(m.id??"");tr.dataset.caseId=key(m.id??"");const image=key(m.image??""),td=appendText(tr,"td",null,"case-image");appendText(td,"strong",image.split(/[\\/]/).pop()||"—");const details=appendText(td,"details");appendText(details,"summary","Full path");appendText(details,"span",image||"Unavailable");appendText(tr,"td",numeric(m.gt_index)?format(m.gt_index):"—");appendText(tr,"td",decimal(m.confidence));appendText(tr,"td",decimal(m.iou));appendText(tr,"td",numeric(m.distance)?format(m.distance):"—");const top=Array.isArray(m.top_classes)?m.top_classes:[],labels=top.map((id,i)=>(i+1)+". "+classLabel(typeof id==="object"?id.id:id)),topCell=appendText(tr,"td",null,"top-labels");appendText(topCell,"div",labels.length?labels.slice(0,5).join(" · "):"—");if(labels.length>5){const full=appendText(topCell,"details");appendText(full,"summary","All "+labels.length+" ranked labels");appendText(full,"div",labels.join(" · "));}}
+    if(!matches.length)appendEmptyRow(tbody,6,"No retained cases for this selected pair.");
+    $("pair-cases").dataset.totalCases=matches.length;
+    $("case-count").textContent=format(matches.length)+" cases for this exact true/predicted pair in the remaining population. Click a column heading to sort. GT index is the exported ground-truth box index within its image.";
+    $("cases-page").textContent=matches.length?format(start+1)+"–"+format(Math.min(start+size,matches.length))+" of "+format(matches.length):"0 cases";
+    $("cases-prev").disabled=state.page===0;$("cases-next").disabled=state.page>=pages-1;
+    document.querySelectorAll("[data-case-sort]").forEach(button=>{const field=button.dataset.caseSort,active=field===state.caseSort,label={image:"Image / full path",gt_index:"GT index",confidence:"Confidence",iou:"IoU",distance:"Distance"}[field];button.textContent=label+(active?(state.caseDescending?" ↓":" ↑"):"");button.parentElement.setAttribute("aria-sort",active?(state.caseDescending?"descending":"ascending"):"none");});
+  }
+  function displayRefresh(){renderMatrix();renderClass();renderPair();}
+  function initMetadata(){
+    const run=DATA.run||{};document.title=DATA.title||"FathomNet confusion explorer";$("page-title").textContent=DATA.title||"Where predictions go wrong";
+    $("run-line").textContent=[["Run",run.name],["Model",run.model],["Method",run.method],["α",run.alpha],["λ",run.lambda],["Seed",run.seed],["Split",run.split]].filter(([,v])=>v!==undefined&&v!==null&&v!=="").map(([k,v])=>k+": "+v).join(" · ");
+    const notes=(DATA.validation||{}).notes||[],notice=$("validation-note"),noteTexts=notes.map(note=>typeof note==="string"?note:JSON.stringify(note));
+    const hashWarning=noteTexts.some(note=>/taxonomy\s+SHA-256\s+differs/i.test(note)),identityWarning=noteTexts.some(note=>/custom run name.*(does not encode|cannot)/i.test(note));
+    if(hashWarning||identityWarning){notice.hidden=false;appendText(notice,"p","Data provenance note").style.fontWeight="650";if(hashWarning)appendText(notice,"p","This report uses a compatible taxonomy file whose SHA-256 differs from the evaluation record. Strict compatibility checks passed, but the exact evaluation file is unverified; see the provenance details for hashes and checks.");if(identityWarning)appendText(notice,"p","The custom run name could not be independently reconciled with its training settings. Reported parameters come from the training arguments; see the provenance details.");}
+    const provenance=$("provenance");
+    for(const[label,value]of[["Run",run],["Exported matching protocol",protocol],["Fixed reference detection metrics",metrics],["Native metrics",(DATA.reference||{}).native_metrics||{}],["Taxonomy distance mode",(DATA.taxonomy||{}).distance_mode||"—"],["Validation",DATA.validation||{}],["Source provenance",DATA.provenance||{}]]){appendText(provenance,"p",label).style.fontWeight="650";appendText(provenance,"pre",typeof value==="string"?value:JSON.stringify(value,null,2));}
+  }
+  $("confidence-filter").min=floorConfidence;$("confidence-filter").value=floorConfidence;$("iou-filter").min=floorIoU;$("iou-filter").value=floorIoU;
+  for(const[id,field,floor]of[["confidence-filter","confidence",floorConfidence],["iou-filter","iou",floorIoU]])$(id).addEventListener("change",()=>{state[field]=Math.min(1,Math.max(floor,Number($(id).value)||floor));$(id).value=state[field];recompute();});
+  $("minimum-pair-count").addEventListener("change",()=>{state.minimumPair=Math.max(1,Math.floor(Number($("minimum-pair-count").value)||1));$("minimum-pair-count").value=state.minimumPair;displayRefresh();});
+  $("minimum-distance").addEventListener("change",()=>{state.minimumDistance=Math.max(0,Math.floor(Number($("minimum-distance").value)||0));$("minimum-distance").value=state.minimumDistance;displayRefresh();});
+  $("relation-filter").addEventListener("change",()=>{state.relation=$("relation-filter").value;displayRefresh();});$("pair-sort").addEventListener("change",()=>{state.pairSort=$("pair-sort").value;renderClass();});
+  $("matrix-mode").addEventListener("change",()=>{state.mode=$("matrix-mode").value;renderMatrix();});$("hide-diagonal").addEventListener("change",()=>{state.hideDiagonal=$("hide-diagonal").checked;renderMatrix();});
+  $("class-search").addEventListener("input",renderClassOptions);$("class-select").addEventListener("change",()=>selectClass($("class-select").value,false));
+  document.querySelectorAll("[data-receiver-sort]").forEach(button=>button.addEventListener("click",()=>{const field=button.dataset.receiverSort;state.receiverDescending=state.receiverSort===field?!state.receiverDescending:true;state.receiverSort=field;renderReceivers();}));
+  document.querySelectorAll("[data-case-sort]").forEach(button=>button.addEventListener("click",()=>{const field=button.dataset.caseSort;state.caseDescending=state.caseSort===field?!state.caseDescending:field!=="image";state.caseSort=field;state.page=0;renderPair();}));
+  $("cases-prev").addEventListener("click",()=>{state.page--;renderPair();});$("cases-next").addEventListener("click",()=>{state.page++;renderPair();});
+  window.addEventListener("resize",()=>{if(!activePathPair)return;cancelAnimationFrame(pathResizeFrame);pathResizeFrame=requestAnimationFrame(()=>{if(activePathPair)renderPath(activePathPair);});});
+  $("reset-filters").addEventListener("click",()=>{Object.assign(state,{confidence:floorConfidence,iou:floorIoU,minimumPair:1,minimumDistance:0,relation:"all",pairSort:"count",mode:"count",hideDiagonal:false});$("confidence-filter").value=floorConfidence;$("iou-filter").value=floorIoU;$("minimum-pair-count").value=1;$("minimum-distance").value=0;$("relation-filter").value="all";$("pair-sort").value="count";$("matrix-mode").value="count";$("hide-diagonal").checked=false;$("class-search").value="";recompute();});
+  initMetadata();renderReference();recompute();
+})();
+</script>
+</body>
+</html>
