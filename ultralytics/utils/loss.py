@@ -457,6 +457,58 @@ class v8DetectionLoss:
         )
         self.bbox_loss = BboxLoss(m.reg_max).to(device)
         self.proj = torch.arange(m.reg_max, dtype=torch.float, device=device)
+        self.soft_weight = getattr(h, "soft_weight", 0.0)
+
+        if (
+            isinstance(self.soft_weight, bool)
+            or not isinstance(self.soft_weight, (int, float))
+            or not math.isfinite(self.soft_weight)
+            or self.soft_weight < 0
+        ):
+            raise ValueError(
+                "soft_weight must be finite and nonnegative"
+            )
+
+        self.soft_labels = None
+
+        if self.soft_weight > 0:
+            from fathomnet_yolo.soft_labels import (
+                HierarchicalSoftLabelLoss,
+            )
+
+            mode = getattr(h, "soft_mode", "soft")
+
+            if mode not in {"soft", "hard"}:
+                raise ValueError(
+                    "soft_mode must be soft or hard"
+                )
+
+            taxonomy_path = getattr(
+                h,
+                "soft_taxonomy",
+                None,
+            )
+
+            if not taxonomy_path:
+                raise ValueError(
+                    "soft_taxonomy is required "
+                    "when soft_weight > 0"
+                )
+
+            self.soft_labels = HierarchicalSoftLabelLoss(
+                Path(taxonomy_path).expanduser(),
+                class_names=model.names,
+                beta=(
+                    getattr(h, "soft_beta", 10.0)
+                    if mode == "soft"
+                    else None
+                ),
+                distance_mode=getattr(
+                    h,
+                    "soft_distance_mode",
+                    "edge_count",
+                ),
+            ).to(device)
         self.hxe_weight = float(getattr(h, "hxe_weight", 0.0))
 
         if (
@@ -600,6 +652,18 @@ class v8DetectionLoss:
                     )
                 )
 
+        if self.soft_labels is not None:
+            soft_raw = self.soft_labels(
+                pred_scores[fg_mask],
+                target_labels[fg_mask].long(),
+                target_scores.sum(dim=-1)[fg_mask].detach(),
+                target_scores_sum,
+            )
+
+            loss[1] = (
+                loss[1]
+                + self.soft_weight * soft_raw
+            )
         # Bbox loss: zero on an empty foreground, and pred_distri stays in the graph either way
         loss[0], loss[2] = self.bbox_loss(
             pred_distri,
@@ -613,14 +677,30 @@ class v8DetectionLoss:
             stride_tensor,
         )
 
-        loss[0] *= self.hyp.box  # box gain
-        loss[1] *= self.hyp.cls  # cls gain
-        loss[2] *= self.hyp.dfl  # dfl gain
-        return (
-            (fg_mask, target_gt_idx, target_bboxes, anchor_points, stride_tensor),
-            loss,
-            dict(zip(self.loss_names, loss.detach())),
-        )  # loss(box, cls, dfl)
+        loss[0] *= self.hyp.box
+        loss[1] *= self.hyp.cls
+        loss[2] *= self.hyp.dfl
+
+        loss_items = dict(
+            zip(self.loss_names, loss.detach())
+        )
+
+        if self.soft_labels is not None:
+            loss_items.update(
+                bce_loss=bce_raw.detach(),
+                soft_ce=self.soft_labels.last_components["ce"],
+                soft_kl=self.soft_labels.last_components["kl"],
+                soft_entropy=(
+                    self.soft_labels.last_components["entropy"]
+                ),
+                soft_weighted=(
+                    self.hyp.cls
+                    * self.soft_weight
+                    * soft_raw.detach()
+                ),
+            )
+
+        return ((fg_mask, target_gt_idx, target_bboxes, anchor_points, stride_tensor,), loss, loss_items,)
 
     def parse_output(
         self, preds: dict[str, torch.Tensor] | tuple[torch.Tensor, dict[str, torch.Tensor]]
