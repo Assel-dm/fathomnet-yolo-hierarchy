@@ -107,6 +107,11 @@ dfl: 1.5 # (float) box distance loss gain (DFL when reg_max > 1, L1 on DFL-free 
 hxe_weight: 0.0 # (float) coefficient balancing BCE and HXE
 hxe_alpha: 0.2 # (float) ponderation of tree depth
 hxe_taxonomy: null # path to the fixed taxonomy
+soft_weight: 0.0 # Coefficient lambda de la CE auxiliaire
+soft_beta: 10.0 # Concentration des distributions taxonomiques
+soft_mode: soft # soft ou hard
+soft_taxonomy: null # Chemin de la taxonomie
+soft_distance_mode: edge_count # edge_count ou lca_height
 pose: 12.0 # (float) pose loss gain (pose tasks)
 kobj: 1.0 # (float) keypoint objectness loss gain (pose tasks)
 rle: 1.0 # (float) rle loss gain (pose tasks)
