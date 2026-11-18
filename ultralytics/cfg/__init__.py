@@ -219,6 +219,8 @@ CFG_FLOAT_KEYS = frozenset(
         "batch",
         "hxe_weight",
         "hxe_alpha",
+        "soft_weight",
+        "soft_beta",
     }
 )
 CFG_FRACTION_KEYS = frozenset(
