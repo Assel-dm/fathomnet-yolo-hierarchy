@@ -55,6 +55,11 @@
     .legend { display:flex; justify-content:center; gap:5px 13px; flex-wrap:wrap; margin:15px 0 0; }
     .legend-item { display:flex; align-items:center; gap:5px; padding:3px 0; border:0; background:none; font-size:11px; }
     .swatch { width:9px; height:9px; border-radius:50%; flex:none; }
+    .status-legend { gap:5px 20px; margin-top:12px; }
+    .status-legend .swatch { width:12px; height:12px; }
+    .swatch-learned { background:#2d8ad2; }
+    .swatch-ancestor { background:#d4d9dd; border:1px solid #bec8ce; }
+    .count-note { max-width:660px; margin:8px auto 0; }
     .details { min-width:0; padding:22px 19px; border-left:1px solid var(--line); }
     .panel-label { margin:0 0 10px; font-size:11px; font-weight:650; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); }
     .details h2 { margin:0 0 8px; font-size:23px; line-height:1.25; letter-spacing:-.025em; overflow-wrap:anywhere; }
@@ -88,7 +93,7 @@
   <header>
     <p class="eyebrow" id="dataset-name">FathomNet</p>
     <h1 id="page-title">Taxonomy composition</h1>
-    <p class="intro">Rings follow tree depth in the frozen taxonomy; ranks can vary between branches. Sector size shows dataset classes or annotated boxes. Colours identify phyla, with lighter shades further down each branch.</p>
+    <p class="intro">Rings follow tree depth in the frozen taxonomy; ranks can vary between branches. Hues identify phyla. Strong colours mark learned dataset classes; muted colours mark added taxonomic ancestors. Each taxon appears once.</p>
     <div class="totals" id="summary" aria-label="Dataset summary"></div>
   </header>
   <section class="workspace" aria-label="Interactive taxonomy composition">
@@ -107,7 +112,9 @@
         <nav class="breadcrumbs" id="breadcrumbs" aria-label="Current taxonomic path"></nav>
         <div id="chart"><svg id="sunburst-svg" role="group" aria-label="Interactive sunburst taxonomy"></svg><div id="tooltip" role="tooltip" hidden></div></div>
         <p class="caption" id="caption"></p>
+        <div id="class-legend" class="legend status-legend" aria-label="Taxon origin legend"><span class="legend-item"><span class="swatch swatch-learned"></span>Learned dataset class</span><span class="legend-item"><span class="swatch swatch-ancestor"></span>Added taxonomic ancestor</span></div>
         <div id="legend" class="legend" aria-label="Phylum colour legend"></div>
+        <p class="caption count-note" id="direct-share-note">At an internal dataset class, angular space without child sectors represents its own direct share. It is included in the branch total and does not denote another taxon.</p>
         <p id="chart-status" role="status" aria-live="polite"></p>
       </div>
       <aside class="details" id="node-details" aria-label="Selected taxon details"></aside>
@@ -144,7 +151,6 @@ THIS SOFTWARE. -->
   const tooltip = document.getElementById('tooltip');
   const nodes = new Map();
   const parents = new Map();
-  const depths = new Map();
   const phyla = new Map();
   const classTotals = new Map();
   const visualNodes = new Map();
@@ -159,18 +165,17 @@ THIS SOFTWARE. -->
   const percent = (value, total) => total > 0 ? `${(100 * value / total).toFixed(value / total < .001 ? 3 : 2)}%` : 'Not applicable';
   const sourceAliases = node => (node.originals || []).flatMap(record => [record.original_name, ...(record.aliases || [])]).filter(name => typeof name === 'string' && name.length);
 
-  function index(node, parent, depth, phylum) {
+  function index(node, parent, phylum) {
     nodes.set(node.id, node);
     parents.set(node.id, parent);
-    depths.set(node.id, depth);
     if (String(node.rank).toLowerCase() === 'phylum') phylum = node;
     phyla.set(node.id, phylum);
     let count = (node.originals || []).length;
-    for (const child of node.children || []) count += index(child, node.id, depth + 1, phylum);
+    for (const child of node.children || []) count += index(child, node.id, phylum);
     classTotals.set(node.id, count);
     return count;
   }
-  index(data.tree, null, 0, null);
+  index(data.tree, null, null);
   app.dataset.totalNodes = String(nodes.size);
   const hasCounts = data.tree.subtree_annotations !== null && data.tree.subtree_annotations !== undefined;
   const hasSplits = Boolean(data.summary.boxes_by_split);
@@ -192,19 +197,11 @@ THIS SOFTWARE. -->
     if (split !== 'all' && node.subtree_boxes_by_split) return node.subtree_boxes_by_split[split] || 0;
     return node.subtree_annotations || 0;
   }
-  function weightTree(node) {
-    const children = (node.children || []).map(weightTree);
-    const own = directValue(node);
-    if (children.length && own > 0) {
-      children.push({id:`direct:${node.id}`, taxonId:node.id, directSector:true, name:`${node.name} (direct)`, own});
-    }
-    return {id:node.id, taxonId:node.id, directSector:false, name:node.name, own:children.length ? 0 : own, children};
-  }
   function buildPartition() {
-    hierarchy = d3.hierarchy(weightTree(data.tree)).sum(node => node.own || 0);
+    hierarchy = d3.hierarchy(data.tree).sum(directValue);
     d3.partition().size([2 * Math.PI, hierarchy.height + 1])(hierarchy);
     visualNodes.clear();
-    for (const node of hierarchy.descendants()) if (!node.data.directSector) visualNodes.set(node.data.taxonId, node);
+    for (const node of hierarchy.descendants()) visualNodes.set(node.data.id, node);
   }
   function hue(name) {
     const stablePhyla = {annelida:25,arthropoda:335,chordata:215,cnidaria:280,echinodermata:115,mollusca:170,porifera:55};
@@ -214,12 +211,12 @@ THIS SOFTWARE. -->
     for (const letter of key) hash = Math.imul(hash ^ letter.codePointAt(0), 16777619);
     return (hash >>> 0) % 360;
   }
-  function colour(node, directSector=false) {
+  function isDatasetClass(node) { return (node.originals || []).length > 0; }
+  function colour(node) {
     const phylum = phyla.get(node.id);
-    if (!phylum) return depths.get(node.id) === 0 ? '#dce7eb' : '#b9ced7';
-    const relativeDepth = depths.get(node.id) - depths.get(phylum.id);
-    const lightness = Math.min(.87, .53 + relativeDepth * .043 + (directSector ? .035 : 0));
-    return d3.hsl(hue(phylum.name), .52, lightness).formatHex();
+    const learned = isDatasetClass(node);
+    if (!phylum) return learned ? '#2d8ad2' : '#d4d9dd';
+    return d3.hsl(hue(phylum.name), learned ? .65 : .12, learned ? .50 : .85).formatHex();
   }
   function pathFor(id) {
     const path = [];
@@ -258,15 +255,16 @@ THIS SOFTWARE. -->
     const node = nodes.get(selectedId);
     const panel = document.getElementById('node-details');
     panel.replaceChildren(textElement('p','Selected taxon','panel-label'),textElement('h2',node.name));
-    panel.append(textElement('span',(node.originals || []).length ? 'Dataset class' : 'Taxonomic ancestor','kind'));
+    panel.append(textElement('span',isDatasetClass(node) ? 'Learned dataset class' : 'Added taxonomic ancestor','kind'));
     const definition = document.createElement('dl');
     const direct = directValue(node), branch = branchValue(node);
     const rows = [
       ['Rank', node.rank || 'Unranked'],
       ['Aphia ID', node.aphia_id ?? 'Not provided'],
       ['YOLO class ID', (node.originals || []).map(record => record.yolo_class_id).join(', ') || 'Not applicable'],
-      [`Direct ${units()}`, number(direct)],
-      [`Branch ${units()}`, number(branch)],
+      ['Direct at this taxon', `${number(direct)} ${units()}`],
+      ['Descendants', `${number(Math.max(0,branch-direct))} ${units()}`],
+      ['Branch total', `${number(branch)} ${units()}`],
       ['Share of dataset', percent(branch,hierarchy.value)],
       ['Share of current view', percent(branch,visualNodes.get(focusId).value)],
     ];
@@ -277,7 +275,7 @@ THIS SOFTWARE. -->
     }
     panel.append(definition);
     if ((node.children || []).length && direct > 0) {
-      panel.append(textElement('p',`The “direct” sector represents ${units()} assigned to ${node.name} itself. Child sectors represent more specific taxa.`, 'note'));
+      panel.append(textElement('p',`${number(direct)} ${units()} are assigned to ${node.name} itself and are included in its branch total. The angular space without child sectors is this direct share; child sectors represent more specific taxa.`, 'note'));
     }
     const aliases = [...new Set(sourceAliases(node).filter(name => name && name !== node.name))];
     if (aliases.length) {
@@ -293,12 +291,12 @@ THIS SOFTWARE. -->
   }
 
   function showTooltip(event, partitionNode) {
-    const node = nodes.get(partitionNode.data.taxonId);
-    const isDirect = partitionNode.data.directSector;
-    const value = isDirect ? directValue(node) : branchValue(node);
-    tooltip.replaceChildren(textElement('strong',node.name + (isDirect ? ' · direct' : '')),
-      textElement('span',`${number(value)} ${units()} · ${percent(value,hierarchy.value)} of dataset`),
-      textElement('small',`${node.rank || 'Unranked'}${phyla.get(node.id) ? ' · ' + phyla.get(node.id).name : ''}`));
+    const node = partitionNode.data;
+    const value = branchValue(node);
+    tooltip.replaceChildren(textElement('strong',node.name),
+      textElement('span',`${number(value)} ${units()} in branch · ${percent(value,hierarchy.value)} of dataset`),
+      textElement('small',`${number(directValue(node))} direct · ${number(Math.max(0,value-directValue(node)))} in descendants`),
+      textElement('small',`${isDatasetClass(node) ? 'Learned dataset class' : 'Added taxonomic ancestor'} · ${node.rank || 'Unranked'}${phyla.get(node.id) ? ' · ' + phyla.get(node.id).name : ''}`));
     tooltip.hidden = false;
     const bounds = chart.getBoundingClientRect();
     const pointerX = event.clientX ? event.clientX - bounds.left : bounds.width / 2;
@@ -328,18 +326,20 @@ THIS SOFTWARE. -->
       .innerRadius(node => normalise(node).y0).outerRadius(node => normalise(node).y1 - .5)
       .padAngle(node => Math.min((normalise(node).x1-normalise(node).x0)/2,.002)).padRadius(radius);
     const sectors = svg.append('g').attr('class','sectors').selectAll('path').data(visible).join('path')
-      .attr('class',node => `sector${node.data.taxonId === selectedId ? ' selected' : ''}`)
-      .attr('d',arc).attr('fill',node => colour(nodes.get(node.data.taxonId),node.data.directSector))
+      .attr('class',node => `sector${node.data.id === selectedId ? ' selected' : ''}`)
+      .attr('d',arc).attr('fill',node => colour(node.data))
       .attr('role','button').attr('tabindex',0)
-      .attr('data-node-id',node => node.data.taxonId).attr('data-direct-sector',node => String(node.data.directSector))
-      .attr('data-value',node => node.value).attr('data-hue-phylum',node => phyla.get(node.data.taxonId)?.id || '')
-      .attr('data-fill',node => colour(nodes.get(node.data.taxonId),node.data.directSector))
-      .attr('aria-label',node => `${node.data.name}: ${number(node.value)} ${units()}, ${percent(node.value,hierarchy.value)} of dataset`)
+      .attr('data-node-id',node => node.data.id).attr('data-dataset-class',node => String(isDatasetClass(node.data)))
+      .attr('data-value',node => node.value).attr('data-direct-value',node => directValue(node.data))
+      .attr('data-x0',node => node.x0).attr('data-x1',node => node.x1)
+      .attr('data-hue-phylum',node => phyla.get(node.data.id)?.id || '')
+      .attr('data-fill',node => colour(node.data))
+      .attr('aria-label',node => `${node.data.name}: ${number(node.value)} ${units()} in branch, ${number(directValue(node.data))} direct, ${percent(node.value,hierarchy.value)} of dataset`)
       .on('pointermove',showTooltip).on('pointerleave',() => {tooltip.hidden = true;})
       .on('focus',showTooltip).on('blur',() => {tooltip.hidden = true;})
-      .on('click',(event,node) => selectTaxon(node.data.taxonId))
-      .on('keydown',(event,node) => {if (event.key === 'Enter' || event.key === ' ') {event.preventDefault(); selectTaxon(node.data.taxonId);}});
-    sectors.append('title').text(node => `${node.data.name}\n${number(node.value)} ${units()}`);
+      .on('click',(event,node) => selectTaxon(node.data.id))
+      .on('keydown',(event,node) => {if (event.key === 'Enter' || event.key === ' ') {event.preventDefault(); selectTaxon(node.data.id);}});
+    sectors.append('title').text(node => `${node.data.name}\n${number(node.value)} ${units()} in branch\n${number(directValue(node.data))} direct ${units()}`);
     const labels = visible.filter(node => {
       const p = normalise(node);
       return (p.x1-p.x0)*(p.y0+p.y1)/2 > 52 && band >= 15;
@@ -368,6 +368,9 @@ THIS SOFTWARE. -->
     app.dataset.focusValue = String(focus.value);
     app.dataset.metric = metric;
     app.dataset.split = split;
+    if (focus.value > 0 && directValue(focus.data) > 0 && !focus.children?.some(child => child.value > 0)) {
+      document.getElementById('chart-status').textContent = `Only direct ${units()} at this taxon: ${number(directValue(focus.data))}. No descendant ${units()} in the current selection.`;
+    }
     document.getElementById('up').disabled = parents.get(focusId) === null;
     const breadcrumbs = document.getElementById('breadcrumbs'); breadcrumbs.replaceChildren();
     for (const [index,node] of pathFor(focusId).entries()) {
@@ -378,7 +381,7 @@ THIS SOFTWARE. -->
     const phy = [...nodes.values()].filter(node => node.rank === 'phylum' && branchValue(node)>0);
     for (const node of phy.sort((a,b) => a.name.localeCompare(b.name))) {
       const button = textElement('button','','legend-item');
-      const mark = textElement('span','','swatch'); mark.style.backgroundColor = colour(node);
+      const mark = textElement('span','','swatch'); mark.style.backgroundColor = d3.hsl(hue(node.name), .65, .50).formatHex();
       button.append(mark,document.createTextNode(node.name)); button.addEventListener('click',() => selectTaxon(node.id)); legend.append(button);
     }
     showDetails();
