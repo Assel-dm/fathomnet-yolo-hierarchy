@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Taxonomy composition</title>
+  <style>
+    :root { --ink:#143c4a; --muted:#617882; --ocean:#086f98; --line:#d6e4e8; --soft:#eef6f8; --paper:#fff; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:#f4f8f9; font:14px/1.5 Inter,"Segoe UI",Arial,sans-serif; }
+    button,input,select { font:inherit; color:inherit; }
+    button { cursor:pointer; }
+    button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible,.sector:focus-visible { outline:3px solid #45a8cb; outline-offset:3px; }
+    button:disabled { opacity:.45; cursor:default; }
+    .page { max-width:1540px; margin:auto; padding:26px 30px 20px; }
+    .eyebrow { margin:0 0 6px; color:var(--ocean); font-size:11px; font-weight:700; letter-spacing:.13em; text-transform:uppercase; }
+    h1 { margin:0; font-size:clamp(25px,2.4vw,35px); line-height:1.15; letter-spacing:-.04em; }
+    .intro { max-width:900px; margin:10px 0 16px; color:var(--muted); }
+    .totals { display:flex; flex-wrap:wrap; gap:8px 25px; margin-bottom:22px; color:var(--muted); font-size:12px; }
+    .totals strong { margin-right:5px; font-size:18px; color:var(--ink); font-variant-numeric:tabular-nums; }
+    .workspace { background:var(--paper); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+    .toolbar { display:flex; flex-wrap:wrap; gap:12px 20px; align-items:center; padding:15px 18px; border-bottom:1px solid var(--line); }
+    .search-wrap { flex:1 1 240px; position:relative; max-width:460px; }
+    #search { width:100%; min-height:40px; padding:8px 11px; border:1px solid #c7dce5; border-radius:6px; background:#fbfdfe; }
+    .search-panel { position:absolute; z-index:5; top:46px; left:0; width:100%; max-height:360px; overflow:auto; border:1px solid var(--line); border-radius:7px; background:white; box-shadow:0 10px 25px #143c4a20; }
+    .search-note { margin:0; padding:8px 10px; color:var(--muted); font-size:11px; }
+    #search-results { list-style:none; margin:0; padding:4px; }
+    .search-result { width:100%; border:0; border-radius:4px; padding:8px; background:white; text-align:left; }
+    .search-result:hover,.search-result[aria-selected=true] { background:var(--soft); }
+    .search-result strong,.search-result small { display:block; overflow-wrap:anywhere; }
+    .search-result small { color:var(--muted); font-size:11px; }
+    .control { display:flex; gap:7px; align-items:center; font-size:12px; }
+    select { min-height:38px; max-width:210px; border:1px solid #c7dce5; border-radius:6px; background:white; padding:6px 9px; }
+    .actions { display:flex; gap:6px; margin-left:auto; }
+    .button { min-height:38px; padding:7px 11px; border:1px solid #cddfe5; border-radius:6px; background:white; font-size:12px; }
+    .button:hover { background:var(--soft); }
+    .explorer { display:grid; grid-template-columns:minmax(0,1fr) 310px; }
+    .chart-panel { min-width:0; padding:14px 20px 20px; }
+    .breadcrumbs { min-height:28px; display:flex; flex-wrap:wrap; align-items:center; gap:3px 6px; font-size:11px; }
+    .breadcrumbs button { border:0; background:none; padding:3px 1px; color:var(--ocean); font-size:inherit; }
+    .breadcrumbs span { color:#91a7b0; }
+    #chart { position:relative; width:100%; max-width:920px; margin:auto; }
+    #sunburst-svg { display:block; width:100%; height:auto; overflow:visible; }
+    .sector { cursor:pointer; stroke:white; stroke-width:.65; }
+    .sector:hover,.sector:focus-visible { stroke:#163f4e; stroke-width:1.6; }
+    .sector.selected { stroke:#113f54; stroke-width:2; }
+    .arc-label { fill:#183b47; font-size:11px; font-weight:500; pointer-events:none; text-anchor:middle; paint-order:stroke; stroke:#ffffff99; stroke-width:2px; stroke-linejoin:round; }
+    #center-action { cursor:pointer; }
+    .center-circle { fill:#f7fafb; stroke:#d4e3e9; stroke-width:1; }
+    .center-name { fill:var(--ink); text-anchor:middle; font-size:12px; font-weight:650; pointer-events:none; }
+    .center-value { fill:var(--ink); text-anchor:middle; font-size:20px; font-weight:650; pointer-events:none; }
+    .center-unit { fill:var(--muted); text-anchor:middle; font-size:11px; pointer-events:none; }
+    .caption { margin:0; text-align:center; color:var(--muted); font-size:11px; }
+    .legend { display:flex; justify-content:center; gap:5px 13px; flex-wrap:wrap; margin:15px 0 0; }
+    .legend-item { display:flex; align-items:center; gap:5px; padding:3px 0; border:0; background:none; font-size:11px; }
+    .swatch { width:9px; height:9px; border-radius:50%; flex:none; }
+    .details { min-width:0; padding:22px 19px; border-left:1px solid var(--line); }
+    .panel-label { margin:0 0 10px; font-size:11px; font-weight:650; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); }
+    .details h2 { margin:0 0 8px; font-size:23px; line-height:1.25; letter-spacing:-.025em; overflow-wrap:anywhere; }
+    .kind { display:inline-block; background:var(--soft); color:var(--ocean); padding:3px 7px; font-size:11px; border-radius:3px; margin:0 0 16px; }
+    dl { margin:0; }
+    dl > div { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; padding:7px 0; font-size:12px; }
+    dt { color:var(--muted); }
+    dd { margin:0; text-align:right; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+    .note { margin:13px 0 0; font-size:11px; color:var(--muted); }
+    .detail-section { margin-top:18px; padding-top:17px; border-top:1px solid var(--line); }
+    .aliases { margin:0; padding-left:16px; font-size:12px; overflow-wrap:anywhere; }
+    .lineage { margin:0; font-size:11px; color:var(--muted); overflow-wrap:anywhere; }
+    #chart-status { min-height:18px; margin:12px 0 0; color:var(--muted); font-size:11px; }
+    #tooltip { position:absolute; z-index:3; width:max-content; max-width:min(290px,90%); padding:9px 11px; border:1px solid #cddfe5; border-radius:5px; box-shadow:0 4px 14px #163f4e1a; background:#fffffff5; font-size:12px; pointer-events:none; overflow-wrap:anywhere; }
+    #tooltip strong { display:block; margin-bottom:3px; }
+    #tooltip small { display:block; color:var(--muted); font-size:11px; }
+    footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-top:14px; color:var(--muted); font-size:11px; }
+    footer p { margin:0; }
+    footer details { max-width:650px; min-width:0; }
+    footer summary { cursor:pointer; color:var(--ocean); }
+    #provenance { overflow-wrap:anywhere; margin-top:12px; }
+    #provenance p { margin:7px 0; }
+    .sr-only { position:absolute!important; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+    [hidden] { display:none!important; }
+    @media(max-width:1050px) { .page { padding:22px 18px; } .explorer { grid-template-columns:minmax(0,1fr) 275px; } .chart-panel { padding:12px; } .toolbar { gap:10px 13px; } .actions { margin-left:0; } }
+    @media(max-width:740px) { .page { padding:20px 12px; } .intro { font-size:12px; } .totals { gap:7px 16px; } .totals strong { font-size:16px; } .explorer { display:block; } .details { border-left:0; border-top:1px solid var(--line); padding:20px; } .toolbar { padding:12px; } .search-wrap { flex-basis:100%; max-width:none; } .control { flex:1; flex-wrap:wrap; } select { max-width:100%; } .actions { margin-left:0; } .chart-panel { padding:10px; } .breadcrumbs { font-size:10px; } .legend { gap:3px 10px; } .legend-item { font-size:10px; } .details h2 { font-size:22px; } }
+  </style>
+</head>
+<body>
+<main class="page" id="app-root" data-explorer-root="taxonomy-sunburst">
+  <header>
+    <p class="eyebrow" id="dataset-name">FathomNet</p>
+    <h1 id="page-title">Taxonomy composition</h1>
+    <p class="intro">Rings follow tree depth in the frozen taxonomy; ranks can vary between branches. Sector size shows dataset classes or annotated boxes. Colours identify phyla, with lighter shades further down each branch.</p>
+    <div class="totals" id="summary" aria-label="Dataset summary"></div>
+  </header>
+  <section class="workspace" aria-label="Interactive taxonomy composition">
+    <div class="toolbar">
+      <div class="search-wrap">
+        <label class="sr-only" for="search">Search taxon names, source aliases, ranks or identifiers</label>
+        <input id="search" type="search" placeholder="Search names, ranks, or IDs…" autocomplete="off" spellcheck="false" role="combobox" aria-controls="search-results" aria-expanded="false">
+        <div class="search-panel" id="search-panel" hidden><p class="search-note" id="search-note"></p><ul id="search-results" role="listbox"></ul></div>
+      </div>
+      <label class="control" for="metric">Sector size<select id="metric"><option value="classes">Dataset classes</option><option value="boxes">Annotated boxes</option></select></label>
+      <label class="control" id="split-control" for="split">Split<select id="split"><option value="all">All splits</option><option value="train">Train</option><option value="val">Validation</option><option value="test">Test</option></select></label>
+      <div class="actions"><button class="button" id="up">Up one level</button><button class="button" id="reset">Reset view</button></div>
+    </div>
+    <div class="explorer">
+      <div class="chart-panel">
+        <nav class="breadcrumbs" id="breadcrumbs" aria-label="Current taxonomic path"></nav>
+        <div id="chart"><svg id="sunburst-svg" role="group" aria-label="Interactive sunburst taxonomy"></svg><div id="tooltip" role="tooltip" hidden></div></div>
+        <p class="caption" id="caption"></p>
+        <div id="legend" class="legend" aria-label="Phylum colour legend"></div>
+        <p id="chart-status" role="status" aria-live="polite"></p>
+      </div>
+      <aside class="details" id="node-details" aria-label="Selected taxon details"></aside>
+    </div>
+  </section>
+  <footer><p>Click a sector to explore its branch. Click the centre to go up.</p><details><summary>Source files &amp; counting conventions</summary><div id="provenance"></div></details></footer>
+</main>
+<script type="application/json" id="taxonomy-data">__TREE_DATA__</script>
+<!-- D3.js ISC license
+Copyright 2010-2023 Mike Bostock
+Permission to use, copy, modify, and/or distribute this software for any purpose
+with or without fee is hereby granted, provided that the above copyright notice
+and this permission notice appear in all copies.
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+THIS SOFTWARE. -->
+<script>__D3_SOURCE__</script>
+<script>
+(() => {
+  'use strict';
+  const data = JSON.parse(document.getElementById('taxonomy-data').textContent);
+  const app = document.getElementById('app-root');
+  const svg = d3.select('#sunburst-svg');
+  const chart = document.getElementById('chart');
+  const metricInput = document.getElementById('metric');
+  const splitInput = document.getElementById('split');
+  const search = document.getElementById('search');
+  const searchPanel = document.getElementById('search-panel');
+  const searchResults = document.getElementById('search-results');
+  const tooltip = document.getElementById('tooltip');
+  const nodes = new Map();
+  const parents = new Map();
+  const depths = new Map();
+  const phyla = new Map();
+  const classTotals = new Map();
+  const visualNodes = new Map();
+  let metric = 'classes';
+  let split = 'all';
+  let focusId = data.tree.id;
+  let selectedId = data.tree.id;
+  let hierarchy;
+  let results = [];
+  let resultIndex = -1;
+  const number = value => value === null || value === undefined ? 'Not provided' : Number(value).toLocaleString('en-US');
+  const percent = (value, total) => total > 0 ? `${(100 * value / total).toFixed(value / total < .001 ? 3 : 2)}%` : 'Not applicable';
+  const sourceAliases = node => (node.originals || []).flatMap(record => [record.original_name, ...(record.aliases || [])]).filter(name => typeof name === 'string' && name.length);
+
+  function index(node, parent, depth, phylum) {
+    nodes.set(node.id, node);
+    parents.set(node.id, parent);
+    depths.set(node.id, depth);
+    if (String(node.rank).toLowerCase() === 'phylum') phylum = node;
+    phyla.set(node.id, phylum);
+    let count = (node.originals || []).length;
+    for (const child of node.children || []) count += index(child, node.id, depth + 1, phylum);
+    classTotals.set(node.id, count);
+    return count;
+  }
+  index(data.tree, null, 0, null);
+  app.dataset.totalNodes = String(nodes.size);
+  const hasCounts = data.tree.subtree_annotations !== null && data.tree.subtree_annotations !== undefined;
+  const hasSplits = Boolean(data.summary.boxes_by_split);
+  const boxLabel = data.dataset === 'megalodon' ? 'Exported boxes' : 'Raw COCO boxes';
+  metricInput.querySelector('option[value="boxes"]').disabled = !hasCounts;
+  metricInput.querySelector('option[value="boxes"]').textContent = boxLabel;
+  document.getElementById('split-control').hidden = !hasSplits;
+  document.getElementById('page-title').textContent = data.title || 'Taxonomy composition';
+  document.title = data.title || 'Taxonomy composition';
+  document.getElementById('dataset-name').textContent = data.dataset === 'megalodon' ? 'Megalodon · FathomNet' : 'FGVC2025 · FathomNet';
+
+  function directValue(node) {
+    if (metric === 'classes') return (node.originals || []).length;
+    if (split !== 'all' && node.boxes_by_split) return node.boxes_by_split[split] || 0;
+    return node.direct_annotations || 0;
+  }
+  function branchValue(node) {
+    if (metric === 'classes') return classTotals.get(node.id);
+    if (split !== 'all' && node.subtree_boxes_by_split) return node.subtree_boxes_by_split[split] || 0;
+    return node.subtree_annotations || 0;
+  }
+  function weightTree(node) {
+    const children = (node.children || []).map(weightTree);
+    const own = directValue(node);
+    if (children.length && own > 0) {
+      children.push({id:`direct:${node.id}`, taxonId:node.id, directSector:true, name:`${node.name} (direct)`, own});
+    }
+    return {id:node.id, taxonId:node.id, directSector:false, name:node.name, own:children.length ? 0 : own, children};
+  }
+  function buildPartition() {
+    hierarchy = d3.hierarchy(weightTree(data.tree)).sum(node => node.own || 0);
+    d3.partition().size([2 * Math.PI, hierarchy.height + 1])(hierarchy);
+    visualNodes.clear();
+    for (const node of hierarchy.descendants()) if (!node.data.directSector) visualNodes.set(node.data.taxonId, node);
+  }
+  function hue(name) {
+    const stablePhyla = {annelida:25,arthropoda:335,chordata:215,cnidaria:280,echinodermata:115,mollusca:170,porifera:55};
+    const key = name.normalize('NFC').toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(stablePhyla,key)) return stablePhyla[key];
+    let hash = 2166136261;
+    for (const letter of key) hash = Math.imul(hash ^ letter.codePointAt(0), 16777619);
+    return (hash >>> 0) % 360;
+  }
+  function colour(node, directSector=false) {
+    const phylum = phyla.get(node.id);
+    if (!phylum) return depths.get(node.id) === 0 ? '#dce7eb' : '#b9ced7';
+    const relativeDepth = depths.get(node.id) - depths.get(phylum.id);
+    const lightness = Math.min(.87, .53 + relativeDepth * .043 + (directSector ? .035 : 0));
+    return d3.hsl(hue(phylum.name), .52, lightness).formatHex();
+  }
+  function pathFor(id) {
+    const path = [];
+    while (id !== null) { path.push(nodes.get(id)); id = parents.get(id); }
+    return path.reverse();
+  }
+  function textElement(tag, value, className) {
+    const element = document.createElement(tag);
+    element.textContent = value;
+    if (className) element.className = className;
+    return element;
+  }
+  function units() { return metric === 'classes' ? 'classes' : 'boxes'; }
+  function splitLabel() { return {all:'All splits',train:'Train',val:'Validation',test:'Test'}[split]; }
+
+  function updateSummary() {
+    const summary = document.getElementById('summary');
+    summary.replaceChildren();
+    const currentImages = hasSplits && split !== 'all' ? data.summary.images_by_split?.[split] : data.summary.images;
+    const currentBoxes = hasSplits && split !== 'all' ? data.summary.boxes_by_split[split] : data.summary.annotations;
+    for (const [value, label] of [[data.summary.original_classes,'dataset classes'],[nodes.size,'taxonomic nodes'],[currentImages,'images'],[currentBoxes,boxLabel.toLowerCase()]]) {
+      if (value === null || value === undefined) continue;
+      const item = document.createElement('span');
+      item.append(textElement('strong', number(value)), document.createTextNode(label));
+      summary.append(item);
+    }
+    splitInput.disabled = metric === 'classes';
+    document.getElementById('caption').textContent = metric === 'classes'
+      ? 'Each learned class contributes one unit, including classes at internal taxonomic nodes. Click a branch to zoom.'
+      : data.dataset === 'megalodon'
+        ? `Sector angle follows exported boxes · ${splitLabel()}. Click a branch to zoom.`
+        : 'Sector angle follows raw COCO boxes, before detection preprocessing. Click a branch to zoom.';
+  }
+
+  function showDetails() {
+    const node = nodes.get(selectedId);
+    const panel = document.getElementById('node-details');
+    panel.replaceChildren(textElement('p','Selected taxon','panel-label'),textElement('h2',node.name));
+    panel.append(textElement('span',(node.originals || []).length ? 'Dataset class' : 'Taxonomic ancestor','kind'));
+    const definition = document.createElement('dl');
+    const direct = directValue(node), branch = branchValue(node);
+    const rows = [
+      ['Rank', node.rank || 'Unranked'],
+      ['Aphia ID', node.aphia_id ?? 'Not provided'],
+      ['YOLO class ID', (node.originals || []).map(record => record.yolo_class_id).join(', ') || 'Not applicable'],
+      [`Direct ${units()}`, number(direct)],
+      [`Branch ${units()}`, number(branch)],
+      ['Share of dataset', percent(branch,hierarchy.value)],
+      ['Share of current view', percent(branch,visualNodes.get(focusId).value)],
+    ];
+    for (const [label,value] of rows) {
+      const row = document.createElement('div');
+      row.append(textElement('dt',label),textElement('dd',String(value)));
+      definition.append(row);
+    }
+    panel.append(definition);
+    if ((node.children || []).length && direct > 0) {
+      panel.append(textElement('p',`The “direct” sector represents ${units()} assigned to ${node.name} itself. Child sectors represent more specific taxa.`, 'note'));
+    }
+    const aliases = [...new Set(sourceAliases(node).filter(name => name && name !== node.name))];
+    if (aliases.length) {
+      const section = textElement('div','','detail-section');
+      section.append(textElement('p','Source names','panel-label'));
+      const list = document.createElement('ul'); list.className = 'aliases';
+      for (const alias of aliases) list.append(textElement('li',alias));
+      section.append(list); panel.append(section);
+    }
+    const section = textElement('div','','detail-section');
+    section.append(textElement('p','Taxonomic path','panel-label'),textElement('p',pathFor(node.id).map(taxon => taxon.name).join(' › '),'lineage'));
+    panel.append(section);
+  }
+
+  function showTooltip(event, partitionNode) {
+    const node = nodes.get(partitionNode.data.taxonId);
+    const isDirect = partitionNode.data.directSector;
+    const value = isDirect ? directValue(node) : branchValue(node);
+    tooltip.replaceChildren(textElement('strong',node.name + (isDirect ? ' · direct' : '')),
+      textElement('span',`${number(value)} ${units()} · ${percent(value,hierarchy.value)} of dataset`),
+      textElement('small',`${node.rank || 'Unranked'}${phyla.get(node.id) ? ' · ' + phyla.get(node.id).name : ''}`));
+    tooltip.hidden = false;
+    const bounds = chart.getBoundingClientRect();
+    const pointerX = event.clientX ? event.clientX - bounds.left : bounds.width / 2;
+    const pointerY = event.clientY ? event.clientY - bounds.top : bounds.height / 2;
+    tooltip.style.left = `${Math.max(5,Math.min(bounds.width-tooltip.offsetWidth-5,pointerX+12))}px`;
+    tooltip.style.top = `${Math.max(5,Math.min(bounds.height-tooltip.offsetHeight-5,pointerY+12))}px`;
+  }
+
+  function draw() {
+    const focus = visualNodes.get(focusId);
+    const width = Math.max(260,chart.clientWidth);
+    const radius = Math.min(width / 2 - 9,435);
+    const hole = Math.max(45,Math.min(83,radius * .24));
+    const relativeHeight = Math.max(1,focus.height);
+    const rings = Math.min(6,relativeHeight);
+    const band = (radius - hole) / rings;
+    svg.attr('viewBox',`${-width/2} ${-width/2} ${width} ${width}`);
+    svg.selectAll('*').remove();
+    const normalise = node => ({
+      x0:Math.max(0,Math.min(1,(node.x0-focus.x0)/(focus.x1-focus.x0 || 1))) * 2*Math.PI,
+      x1:Math.max(0,Math.min(1,(node.x1-focus.x0)/(focus.x1-focus.x0 || 1))) * 2*Math.PI,
+      y0:hole + (node.depth-focus.depth-1)*band,
+      y1:hole + (node.depth-focus.depth)*band,
+    });
+    const visible = focus.descendants().filter(node => node !== focus && node.value > 0 && node.depth <= focus.depth+rings);
+    const arc = d3.arc().startAngle(node => normalise(node).x0).endAngle(node => normalise(node).x1)
+      .innerRadius(node => normalise(node).y0).outerRadius(node => normalise(node).y1 - .5)
+      .padAngle(node => Math.min((normalise(node).x1-normalise(node).x0)/2,.002)).padRadius(radius);
+    const sectors = svg.append('g').attr('class','sectors').selectAll('path').data(visible).join('path')
+      .attr('class',node => `sector${node.data.taxonId === selectedId ? ' selected' : ''}`)
+      .attr('d',arc).attr('fill',node => colour(nodes.get(node.data.taxonId),node.data.directSector))
+      .attr('role','button').attr('tabindex',0)
+      .attr('data-node-id',node => node.data.taxonId).attr('data-direct-sector',node => String(node.data.directSector))
+      .attr('data-value',node => node.value).attr('data-hue-phylum',node => phyla.get(node.data.taxonId)?.id || '')
+      .attr('data-fill',node => colour(nodes.get(node.data.taxonId),node.data.directSector))
+      .attr('aria-label',node => `${node.data.name}: ${number(node.value)} ${units()}, ${percent(node.value,hierarchy.value)} of dataset`)
+      .on('pointermove',showTooltip).on('pointerleave',() => {tooltip.hidden = true;})
+      .on('focus',showTooltip).on('blur',() => {tooltip.hidden = true;})
+      .on('click',(event,node) => selectTaxon(node.data.taxonId))
+      .on('keydown',(event,node) => {if (event.key === 'Enter' || event.key === ' ') {event.preventDefault(); selectTaxon(node.data.taxonId);}});
+    sectors.append('title').text(node => `${node.data.name}\n${number(node.value)} ${units()}`);
+    const labels = visible.filter(node => {
+      const p = normalise(node);
+      return (p.x1-p.x0)*(p.y0+p.y1)/2 > 52 && band >= 15;
+    });
+    svg.append('g').attr('aria-hidden','true').selectAll('text').data(labels).join('text').attr('class','arc-label')
+      .attr('transform',node => {
+        const p = normalise(node), angle = (p.x0+p.x1)/2*180/Math.PI, r = (p.y0+p.y1)/2;
+        return `rotate(${angle-90}) translate(${r},0) rotate(${angle<180 ? 90 : -90})`;
+      }).attr('dy','.35em').text(node => {
+        const p = normalise(node), available = (p.x1-p.x0)*(p.y0+p.y1)/2;
+        const maximum = Math.max(4,Math.floor(available/6));
+        return node.data.name.length > maximum ? node.data.name.slice(0,maximum-1)+'…' : node.data.name;
+      });
+    const centre = svg.append('g').attr('id','center-action').attr('role','button').attr('tabindex',0)
+      .attr('aria-label','Go up one taxonomic level').on('click',goUp)
+      .on('keydown',event => {if (event.key === 'Enter' || event.key === ' ') {event.preventDefault();goUp();}});
+    centre.append('circle').attr('class','center-circle').attr('r',hole-3);
+    const name = nodes.get(focusId).name, capacity = Math.max(8,Math.floor((hole*2-18)/6.5));
+    centre.append('text').attr('class','center-name').attr('y',-19).text(name.length>capacity ? name.slice(0,capacity-1)+'…' : name);
+    centre.append('text').attr('class','center-value').attr('y',7).text(number(focus.value));
+    centre.append('text').attr('class','center-unit').attr('y',26).text(units());
+    centre.append('title').text(name);
+    app.dataset.focusId = focusId;
+    app.dataset.selectedId = selectedId;
+    app.dataset.totalValue = String(hierarchy.value);
+    app.dataset.focusValue = String(focus.value);
+    app.dataset.metric = metric;
+    app.dataset.split = split;
+    document.getElementById('up').disabled = parents.get(focusId) === null;
+    const breadcrumbs = document.getElementById('breadcrumbs'); breadcrumbs.replaceChildren();
+    for (const [index,node] of pathFor(focusId).entries()) {
+      if (index) breadcrumbs.append(textElement('span','›'));
+      const button = textElement('button',node.name); button.addEventListener('click',() => selectTaxon(node.id)); breadcrumbs.append(button);
+    }
+    const legend = document.getElementById('legend'); legend.replaceChildren();
+    const phy = [...nodes.values()].filter(node => node.rank === 'phylum' && branchValue(node)>0);
+    for (const node of phy.sort((a,b) => a.name.localeCompare(b.name))) {
+      const button = textElement('button','','legend-item');
+      const mark = textElement('span','','swatch'); mark.style.backgroundColor = colour(node);
+      button.append(mark,document.createTextNode(node.name)); button.addEventListener('click',() => selectTaxon(node.id)); legend.append(button);
+    }
+    showDetails();
+  }
+
+  function selectTaxon(id) {
+    tooltip.hidden = true;
+    selectedId = id;
+    let candidate = nodes.get(id).children?.length ? id : parents.get(id) || id;
+    while (candidate !== data.tree.id && branchValue(nodes.get(candidate)) === 0) candidate = parents.get(candidate);
+    focusId = candidate;
+    closeSearch();
+    search.value = nodes.get(id).name;
+    const status = document.getElementById('chart-status');
+    status.textContent = branchValue(nodes.get(id)) === 0
+      ? `This taxon has zero ${units()} in ${splitLabel()}. The nearest non-empty ancestor is shown.`
+      : 'Up to six levels are shown from the current view. The centre returns to its parent.';
+    draw();
+  }
+  function goUp() {
+    const parent = parents.get(focusId);
+    if (parent !== null) selectTaxon(parent);
+  }
+  function reset() {
+    focusId = data.tree.id; selectedId = data.tree.id; search.value=''; closeSearch(); tooltip.hidden=true;
+    document.getElementById('chart-status').textContent = 'Up to six levels are shown. Select a sector or search for a deeper taxon.';
+    draw();
+  }
+  function closeSearch() {searchPanel.hidden = true; search.setAttribute('aria-expanded','false'); resultIndex=-1;}
+  function updateSearch() {
+    const query = search.value.trim().toLocaleLowerCase();
+    if (!query) {closeSearch(); return;}
+    const matches = [];
+    for (const node of nodes.values()) {
+      const names = [node.name,...sourceAliases(node)].map(name => name.toLocaleLowerCase());
+      const ids = [node.id,String(node.aphia_id ?? ''),...(node.originals || []).map(record => String(record.yolo_class_id))];
+      const haystack = [...names,node.rank || '',...ids].join(' ').toLocaleLowerCase();
+      if (haystack.includes(query)) matches.push({node,exact:names.includes(query) || ids.includes(query)});
+    }
+    matches.sort((a,b) => Number(b.exact)-Number(a.exact) || a.node.name.localeCompare(b.node.name));
+    results = matches.slice(0,40).map(result => result.node);
+    resultIndex=-1; searchResults.replaceChildren();
+    for (const node of results) {
+      const item = document.createElement('li'), button = textElement('button','','search-result');
+      button.setAttribute('role','option'); button.setAttribute('aria-selected','false');
+      button.append(textElement('strong',node.name),textElement('small',`${node.rank || 'Unranked'} · ${node.id}${sourceAliases(node).some(name => name!==node.name) ? ' · source names available' : ''}`));
+      button.addEventListener('click',() => selectTaxon(node.id)); item.append(button); searchResults.append(item);
+    }
+    document.getElementById('search-note').textContent = matches.length ? `${number(matches.length)} matching taxa${matches.length>40 ? ' · first 40 shown' : ''}` : 'No matching taxon';
+    searchPanel.hidden=false; search.setAttribute('aria-expanded','true');
+  }
+  search.addEventListener('input',updateSearch);
+  search.addEventListener('keydown',event => {
+    if (event.key === 'Escape') {closeSearch(); return;}
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (searchPanel.hidden) updateSearch();
+      resultIndex = Math.max(0,Math.min(results.length-1,resultIndex+(event.key === 'ArrowDown' ? 1 : -1)));
+      [...searchResults.querySelectorAll('button')].forEach((button,index) => button.setAttribute('aria-selected',String(index===resultIndex)));
+    }
+    if (event.key === 'Enter' && !searchPanel.hidden && results.length) {event.preventDefault();selectTaxon(results[Math.max(0,resultIndex)].id);}
+  });
+  document.addEventListener('click',event => {if (!event.target.closest('.search-wrap')) closeSearch();});
+  metricInput.addEventListener('change',() => {metric=metricInput.value; if (metric==='classes') {split='all';splitInput.value='all';} buildPartition();updateSummary();selectTaxon(selectedId);});
+  splitInput.addEventListener('change',() => {split=splitInput.value;buildPartition();updateSummary();selectTaxon(selectedId);});
+  document.getElementById('up').addEventListener('click',goUp);
+  document.getElementById('reset').addEventListener('click',reset);
+  const provenance = document.getElementById('provenance');
+  for (const note of data.provenance?.notes || []) provenance.append(textElement('p',note));
+  for (const source of data.provenance?.sources || []) provenance.append(textElement('p',`${source.role}: ${source.name} · SHA-256 ${source.sha256}`));
+  buildPartition();updateSummary();reset();
+  let resizeTimer;
+  new ResizeObserver(() => {clearTimeout(resizeTimer);resizeTimer=setTimeout(draw,70);}).observe(chart);
+})();
+</script>
+</body>
+</html>
