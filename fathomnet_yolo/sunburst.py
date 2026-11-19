@@ -69,11 +69,14 @@ def prepare_sunburst(
         raise ValueError("Class totals disagree with the tree membership")
     data["summary"]["classes_by_rank"] = dict(classes_by_rank)
     notes.append(
-        "An internal learned class contributes its own direct sector, separately from descendant classes. "
-        "Direct sectors are display elements; the frozen biological taxonomy is unchanged."
+        "Each taxon appears once. An internal learned class contributes its own direct mass "
+        "in addition to descendant classes, without an artificial direct child. "
+        "The angular space without child sectors represents assignments to that taxon itself."
     )
     notes.append(
-        "Colours identify phyla; the shade varies along their taxonomic branches."
+        "Colours identify phyla. Saturated sectors are learned dataset classes; "
+        "muted sectors are added taxonomic ancestors. This status follows the class mapping, "
+        "regardless of the selected split's annotation counts."
     )
     notes.append(
         "Rings follow tree depth. Missing or additional taxonomic ranks are preserved as recorded."
