@@ -297,8 +297,8 @@ def read_receipts(path):
     return result
 
 
-def export_images(output, selected, class_map, summary, fingerprint, workers, attempts, timeout):
-    """Resume a matching selection, publishing data.yaml once all images are valid."""
+def export_images(output, selected, class_map, summary, fingerprint, workers, attempts, timeout, skip_failed=False):
+    """Resume a selection and optionally finalize the validated images after failures."""
     marker = output / "export_inputs.json"
     report = output / "export_summary.json"
     if marker.exists():
@@ -316,10 +316,9 @@ def export_images(output, selected, class_map, summary, fingerprint, workers, at
         (output / "images" / split).mkdir(parents=True, exist_ok=True)
         (output / "labels" / split).mkdir(parents=True, exist_ok=True)
     (output / "splits").mkdir(exist_ok=True)
-    by_name = {row["name"]: row["yolo_id"] for row in class_map}
     receipt_path = output / "download_receipts.jsonl"
     prior_receipts = read_receipts(receipt_path)
-    image_paths = {split: [] for split in SPLITS}
+    available = {split: [] for split in SPLITS}
     download_sources = {split: Counter() for split in SPLITS}
     failures = []
     total = sum(map(len, selected.values()))
@@ -348,22 +347,62 @@ def export_images(output, selected, class_map, summary, fingerprint, workers, at
                         if prior_receipts.get(image["uuid"]) != receipt:
                             receipts_file.write(json.dumps(receipt, ensure_ascii=False) + "\n")
                         download_sources[split][receipt["source"]] += 1
-                        image_paths[split].append(str(directory / receipt["file_name"]))
-                        write_labels(output, image, by_name)
+                        available[split].append((image, directory / receipt["file_name"]))
                     processed += 1
                     if processed % 1000 == 0 or processed == total:
                         print(f"Images checked: {processed}/{total}. Failures: {len(failures)}", flush=True)
 
     summary["status"] = "downloads_failed" if failures else "ready"
+    summary["skip_failed"] = skip_failed
     summary["download_failures"] = len(failures)
     for split in SPLITS:
         summary["splits"][split]["download_sources"] = dict(download_sources[split])
     write_json(output / "download_failures.json", failures)
-    if failures:
+    if failures and not skip_failed:
         write_json(report, summary)
-        raise ValueError(f"{len(failures)} images failed. See download_failures.json and rerun the same command.")
+        raise ValueError(
+            f"{len(failures)} images failed. See download_failures.json and rerun the same command, "
+            "or add --skip-failed to finalize the available images."
+        )
+
+    # A failed training image may have been the only example of a class.
+    # Rebuild class IDs and all labels from the validated train membership.
+    train_classes = {name for image, _ in available["train"] for name, _ in image["labels"]}
+    class_map = [
+        {"yolo_id": index, "category_id": index + 1, "name": name}
+        for index, name in enumerate(sorted(train_classes))
+    ]
+    exclusions = []
+    for split in ("val", "test"):
+        retained = []
+        for image, path in available[split]:
+            missing_classes = sorted({name for name, _ in image["labels"]} - train_classes)
+            if missing_classes:
+                exclusions.append({"uuid": image["uuid"], "split": split, "classes_absent_from_train": missing_classes})
+            else:
+                retained.append((image, path))
+        available[split] = retained
+    summary["classes_before_download"] = summary["classes"]
+    summary["classes"] = len(class_map)
+    summary["excluded_after_download"] = exclusions
     for split in SPLITS:
-        atomic_text(output / "splits" / f"{split}.txt", "".join(path + "\n" for path in sorted(image_paths[split])))
+        counts = Counter(name for image, _ in available[split] for name, _ in image["labels"])
+        summary["splits"][split].update(
+            exported_images=len(available[split]),
+            exported_boxes=sum(counts.values()),
+            exported_class_counts=dict(sorted(counts.items())),
+        )
+    empty = [split for split in SPLITS if not available[split]]
+    if empty:
+        summary["status"] = "empty_split_after_download"
+        write_json(report, summary)
+        raise ValueError(f"No usable images in {', '.join(empty)} after download. See export_summary.json.")
+    by_name = {row["name"]: row["yolo_id"] for row in class_map}
+    for split in SPLITS:
+        for image, _ in available[split]:
+            write_labels(output, image, by_name)
+        paths = sorted(str(path) for _, path in available[split])
+        atomic_text(output / "splits" / f"{split}.txt", "".join(path + "\n" for path in paths))
     write_json(output / "class_map.json", class_map)
     write_json(
         output / "categories_coco.json",
@@ -373,7 +412,10 @@ def export_images(output, selected, class_map, summary, fingerprint, workers, at
     data = {"path": str(output), **{split: f"splits/{split}.txt" for split in SPLITS}}
     data["names"] = [row["name"] for row in class_map]
     write_json(data_yaml, data)
+    summary["status"] = "ready_with_skipped_images" if failures else "ready"
     write_json(report, summary)
+    if failures:
+        print(f"Finalized available images; {len(failures)} failed downloads are listed in download_failures.json.")
 
 
 def main():
@@ -384,6 +426,7 @@ def main():
     )
     parser.add_argument("--output-dir", type=Path, required=True, help="Destination of the planned or exported dataset")
     parser.add_argument("--download", action="store_true", help="Download images and export YOLO files")
+    parser.add_argument("--skip-failed", action="store_true", help="Finalize the validated images if some downloads fail")
     parser.add_argument("--limit-per-split", type=int, help="Deterministic pilot cap; use a separate output directory")
     parser.add_argument("--workers", type=int, default=8, help="Number of simultaneous downloads")
     parser.add_argument("--attempts", type=int, default=3, help="Attempts per image source")
@@ -427,7 +470,8 @@ def main():
                         f"Empty selected splits: {', '.join(empty)}. Review the plan or raise the pilot limit."
                     )
                 export_images(
-                    output, selected, class_map, summary, fingerprint, args.workers, args.attempts, args.timeout
+                    output, selected, class_map, summary, fingerprint, args.workers, args.attempts, args.timeout,
+                    skip_failed=args.skip_failed,
                 )
             elif marker.exists():
                 raise ValueError("Use a new output directory to plan a selection separately from an existing download.")
