@@ -197,6 +197,12 @@ THIS SOFTWARE. -->
     if (split !== 'all' && node.subtree_boxes_by_split) return node.subtree_boxes_by_split[split] || 0;
     return node.subtree_annotations || 0;
   }
+  function imageValue(node, branch=false) {
+    const value = split === 'all'
+      ? (branch ? node.subtree_images : node.direct_images)
+      : (branch ? node.subtree_images_by_split : node.direct_images_by_split)?.[split];
+    return Number.isFinite(value) && value >= 0 ? value : null;
+  }
   function buildPartition() {
     hierarchy = d3.hierarchy(data.tree).sum(directValue);
     d3.partition().size([2 * Math.PI, hierarchy.height + 1])(hierarchy);
@@ -258,6 +264,9 @@ THIS SOFTWARE. -->
     panel.append(textElement('span',isDatasetClass(node) ? 'Learned dataset class' : 'Added taxonomic ancestor','kind'));
     const definition = document.createElement('dl');
     const direct = directValue(node), branch = branchValue(node);
+    const directImages = imageValue(node), branchImages = imageValue(node,true);
+    app.dataset.selectedDirectImages = directImages ?? 'unknown';
+    app.dataset.selectedSubtreeImages = branchImages ?? 'unknown';
     const rows = [
       ['Rank', node.rank || 'Unranked'],
       ['Aphia ID', node.aphia_id ?? 'Not provided'],
@@ -267,6 +276,8 @@ THIS SOFTWARE. -->
       ['Branch total', `${number(branch)} ${units()}`],
       ['Share of dataset', percent(branch,hierarchy.value)],
       ['Share of current view', percent(branch,visualNodes.get(focusId).value)],
+      ['Images at this taxon', number(directImages)],
+      ['Distinct images in branch', number(branchImages)],
     ];
     for (const [label,value] of rows) {
       const row = document.createElement('div');
@@ -274,6 +285,7 @@ THIS SOFTWARE. -->
       definition.append(row);
     }
     panel.append(definition);
+    panel.append(textElement('p','An image can contain several taxa; branch image counts are deduplicated and cannot be added.','note'));
     if ((node.children || []).length && direct > 0) {
       panel.append(textElement('p',`${number(direct)} ${units()} are assigned to ${node.name} itself and are included in its branch total. The angular space without child sectors is this direct share; child sectors represent more specific taxa.`, 'note'));
     }
@@ -296,6 +308,7 @@ THIS SOFTWARE. -->
     tooltip.replaceChildren(textElement('strong',node.name),
       textElement('span',`${number(value)} ${units()} in branch · ${percent(value,hierarchy.value)} of dataset`),
       textElement('small',`${number(directValue(node))} direct · ${number(Math.max(0,value-directValue(node)))} in descendants`),
+      textElement('small',`Distinct images in branch: ${number(imageValue(node,true))} · at this taxon: ${number(imageValue(node))}`),
       textElement('small',`${isDatasetClass(node) ? 'Learned dataset class' : 'Added taxonomic ancestor'} · ${node.rank || 'Unranked'}${phyla.get(node.id) ? ' · ' + phyla.get(node.id).name : ''}`));
     tooltip.hidden = false;
     const bounds = chart.getBoundingClientRect();
@@ -331,6 +344,8 @@ THIS SOFTWARE. -->
       .attr('role','button').attr('tabindex',0)
       .attr('data-node-id',node => node.data.id).attr('data-dataset-class',node => String(isDatasetClass(node.data)))
       .attr('data-value',node => node.value).attr('data-direct-value',node => directValue(node.data))
+      .attr('data-direct-images',node => imageValue(node.data) ?? 'unknown')
+      .attr('data-subtree-images',node => imageValue(node.data,true) ?? 'unknown')
       .attr('data-x0',node => node.x0).attr('data-x1',node => node.x1)
       .attr('data-hue-phylum',node => phyla.get(node.data.id)?.id || '')
       .attr('data-fill',node => colour(node.data))

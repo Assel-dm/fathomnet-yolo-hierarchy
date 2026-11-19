@@ -6,6 +6,7 @@ import tempfile
 from collections import Counter
 from pathlib import Path
 
+from fathomnet_yolo.image_counts import attach_export_image_counts
 from fathomnet_yolo.megalodon_tree_explorer import prepare_megalodon
 from fathomnet_yolo.tree_explorer import embedded_json, prepare_data, read_json
 
@@ -94,8 +95,9 @@ def generate(
     concept_resolution_path=None,
     title=None,
     assets_dir=None,
+    dataset_dir=None,
 ):
-    """Write one portable HTML document without reading any image or checkpoint."""
+    """Write one portable HTML without loading image pixels or a checkpoint."""
     assets = (
         Path(assets_dir) if assets_dir else Path(__file__).with_name("sunburst_assets")
     )
@@ -117,6 +119,12 @@ def generate(
         raise ValueError(
             "Use the final export summary for Megalodon rather than the original single-class COCO"
         )
+    if dataset_dir is not None and dataset != "megalodon":
+        raise ValueError(
+            "Use --coco for FGVC image counts; --dataset-dir applies to Megalodon"
+        )
+    if dataset_dir is not None and export_summary_path is None:
+        raise ValueError("--dataset-dir requires the final --export-summary")
     output = Path(output_path)
     template_path, library_path = assets / "template.html", assets / "d3.v7.9.0.min.js"
     for path in list(paths.values()) + [template_path, library_path]:
@@ -148,6 +156,33 @@ def generate(
         contents.get("concept_resolution"),
         title,
     )
+    if dataset_dir is not None:
+        image_report = attach_export_image_counts(
+            data,
+            dataset_dir,
+            class_map=contents.get("class_map"),
+            export_summary=contents["export_summary"],
+            output_path=output,
+        )
+        sources.extend(image_report["sources"])
+        notes = [
+            note
+            for note in notes
+            if not note.startswith(
+                "Distinct image counts by class or subtree are unavailable"
+            )
+        ]
+        notes.extend(image_report["notes"])
+    if data["tree"].get("subtree_images") is not None:
+        notes.append(
+            "Image counts use distinct images. An image can contain several classes; "
+            "branch image counts are unions, not sums of child image counts."
+        )
+    else:
+        notes.append(
+            "Per-taxon image counts are not available from the supplied files. "
+            "For Megalodon, provide --dataset-dir to read final split lists and YOLO labels."
+        )
     data["provenance"] = {"sources": sources, "notes": notes}
     template = template_path.read_text(encoding="utf-8")
     library = library_path.read_text(encoding="utf-8")
@@ -186,6 +221,11 @@ def main():
     )
     megalodon.add_argument("--export-summary", type=Path)
     megalodon.add_argument("--concept-resolution", type=Path)
+    megalodon.add_argument(
+        "--dataset-dir",
+        type=Path,
+        help="Final YOLO export directory; count distinct images from split lists and labels",
+    )
     for command in (fgvc, megalodon):
         command.add_argument("--taxonomy", type=Path, required=True)
         command.add_argument("--class-map", type=Path)
@@ -202,6 +242,7 @@ def main():
             getattr(args, "export_summary", None),
             getattr(args, "concept_resolution", None),
             args.title,
+            dataset_dir=getattr(args, "dataset_dir", None),
         )
     except (OSError, ValueError, TypeError, KeyError) as error:
         parser.exit(1, f"Error: {error}\n")
