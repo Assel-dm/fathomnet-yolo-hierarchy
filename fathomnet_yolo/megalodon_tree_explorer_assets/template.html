@@ -141,7 +141,8 @@
         </select>
       </label>
       <div class="toolbar-actions" aria-label="Tree controls">
-        <button class="tool-button" id="expand-level" title="Open the next closed level, within the 1,200-node view limit">Next level</button>
+        <button class="tool-button" id="expand-level" title="Open the next closed level">Next level</button>
+        <button class="tool-button" id="expand-all" title="Open every branch and fit the complete taxonomy">Expand all</button>
         <button class="tool-button" id="collapse-all">Collapse all</button>
         <button class="tool-button" id="fit-view">Fit view</button>
         <button class="tool-button primary" id="reset-view">Reset view</button>
@@ -152,7 +153,7 @@
         <svg id="tree-svg" role="tree" aria-label="Taxonomy tree. Use arrow keys to navigate, Enter or Space to open a branch." aria-describedby="tree-help"></svg>
         <div class="zoom-controls" aria-label="Zoom controls"><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-out" aria-label="Zoom out">−</button><span id="zoom-value" aria-label="Current zoom">100%</span></div>
         <div class="canvas-hint" aria-hidden="true">Drag to pan · Scroll to zoom</div>
-        <p class="sr-only" id="tree-help">Blue circles represent learned dataset classes, including internal nodes. Grey circles represent added ancestors. Select a node for details. Right and left arrow keys open and close branches. Up and down arrow keys move between visible nodes. Wide branches show 80 children per page; use the selected node panel to change pages. Search covers the complete tree.</p>
+        <p class="sr-only" id="tree-help">Blue circles represent learned dataset classes, including internal nodes. Grey circles represent added ancestors. Select a node for details. Right and left arrow keys open and close branches. Up and down arrow keys move between visible nodes. Expand all displays every branch and fits the complete taxonomy. Search covers the complete tree.</p>
       </div>
       <aside class="details" id="node-details" aria-label="Selected node details"><p class="panel-label">Selected node</p><div id="detail-content"></div></aside>
     </div>
@@ -161,7 +162,7 @@
       <div id="tree-status" role="status" aria-live="polite"></div>
     </div>
   </section>
-  <footer class="footer"><p>Up to 1,200 nodes per view · 80 children per branch page · Search covers every node.</p><details><summary>Source files &amp; provenance</summary><div class="provenance" id="provenance"></div></details></footer>
+  <footer class="footer"><p>Expand all to display the complete taxonomy · Search covers every node.</p><details><summary>Source files &amp; provenance</summary><div class="provenance" id="provenance"></div></details></footer>
   <div class="sr-only" id="announcement" role="status" aria-live="polite"></div>
 </main>
 <script type="application/json" id="taxonomy-data">__TREE_DATA__</script>
@@ -197,8 +198,8 @@ THIS SOFTWARE.
   const norm = value => String(value == null ? '' : value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
   const showValue = value => value === null || value === undefined || value === '' ? 'Not recorded' : String(value);
   const rankLabel = value => value ? String(value).replace(/_/g,' ') : 'Not recorded';
-  const NODE_LIMIT = 1200;
-  const CHILD_PAGE = 80;
+  const NODE_LIMIT = Number.POSITIVE_INFINITY;
+  const CHILD_PAGE = Number.MAX_SAFE_INTEGER;
   const root = d3.hierarchy(data.tree);
   const allNodes = root.descendants();
   const originals = node => node.data.originals || [];
@@ -238,7 +239,7 @@ THIS SOFTWARE.
   const nodeLayer = viewport.append('g').attr('class','tree-nodes');
   const layout = d3.tree().nodeSize([34,260]).separation((a,b) => a.parent === b.parent ? 1 : 1.18);
   const linkPath = d3.linkHorizontal().x(d => d.y).y(d => d.x);
-  const zoom = d3.zoom().scaleExtent([.05,2.5]).on('zoom',event => {
+  const zoom = d3.zoom().scaleExtent([.001,2.5]).on('zoom',event => {
     viewport.attr('transform',event.transform);
     $('zoom-value').textContent = `${Math.round(event.transform.k*100)}%`;
   });
@@ -270,7 +271,7 @@ THIS SOFTWARE.
     $('provenance').append(paragraph);
   });
   (provenance.notes || []).filter(note => typeof note === 'string' && note).forEach(note => $('provenance').append(element('p',{},note)));
-  $('provenance').append(element('p',{},'The complete taxonomy is embedded in this file. Branch paging and the view limit affect only the drawing; search and descendant class counts always use the complete tree. Box and image totals follow the Counts selector. Images per taxon are not provided by these source files.'));
+  $('provenance').append(element('p',{},'The complete taxonomy is embedded in this file. Expand all displays every branch without a node limit. Search and descendant class counts always use the complete tree. Box and image totals follow the Counts selector. Images per taxon are not provided by these source files.'));
 
   const childrenPage = node => node.fullChildren.slice(node.childOffset,node.childOffset+CHILD_PAGE);
   const visibleCount = () => root.descendants().length;
@@ -318,7 +319,7 @@ THIS SOFTWARE.
         parent.children = [child];
       }
     });
-    statusNote = 'Focused path revealed; other branches collapsed. Wide branches show the page containing this node.';
+    statusNote = 'Focused path revealed; other branches collapsed. Use Expand all to restore the complete tree.';
   }
   function shortName(node) {
     const name = String(node.data.name || 'Unnamed node');
@@ -411,7 +412,7 @@ THIS SOFTWARE.
     const y0 = -20;
     const y1 = d3.max(visibleNodes,node => node.y+labelWidth(node)+30);
     let k = Math.min(1,(width-58)/(y1-y0),(height-65)/(x1-x0));
-    k = Math.max(initial ? (compactMode ? .82 : .72) : .05,k);
+    k = Math.max(.001,k);
     const tx = (width-(y1-y0)*k)/2-y0*k;
     const ty = (height-(x1-x0)*k)/2-x0*k;
     camera(d3.zoomIdentity.translate(Math.max(30,tx),ty).scale(k),animate);
@@ -597,6 +598,16 @@ THIS SOFTWARE.
     draw();
   });
   $('expand-level').addEventListener('click',() => { expandLevel(root); draw(); centerNode(selected); });
+  $('expand-all').addEventListener('click',() => {
+    allNodes.forEach(node => {
+      node.childOffset = 0;
+      node.children = node.fullChildren.length ? node.fullChildren : null;
+    });
+    statusNote = 'Complete taxonomy displayed.';
+    select(root);
+    draw();
+    fitView(false,false);
+  });
   $('collapse-all').addEventListener('click',() => { closeAll(); statusNote = 'All branches collapsed.'; select(root); draw(); centerNode(root); });
   $('fit-view').addEventListener('click',() => fitView());
   $('reset-view').addEventListener('click',() => { selectedSplit = 'all'; $('split-filter').value = 'all'; updateCounts(); resetBranches(); select(root); draw(); $('search').value = ''; $('clear-search').hidden = true; hideResults(); fitView(true); $('announcement').textContent = 'View reset to broad groups and all splits.'; });
@@ -605,12 +616,13 @@ THIS SOFTWARE.
   function resize() {
     const bounds = treeArea.getBoundingClientRect();
     const widthChanged = Math.abs(bounds.width-width) > 1;
+    const heightChanged = Math.abs(bounds.height-height) > 1;
     const modeChanged = compactMode !== compactQuery.matches;
     compactMode = compactQuery.matches;
     width = bounds.width; height = bounds.height;
     svg.attr('viewBox',`0 0 ${width} ${height}`);
     if (modeChanged) { draw(); }
-    if (!initialized || widthChanged || modeChanged) {
+    if (!initialized || widthChanged || heightChanged || modeChanged) {
       initialized = true;
       if (selected !== root && modeChanged) centerNode(selected,false);
       else fitView(true,false);
