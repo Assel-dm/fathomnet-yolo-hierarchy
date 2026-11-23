@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run a sequential Megalodon HXE sweep and compare it with a completed native run.
+"""Run a sequential multi-seed Megalodon campaign with one native control per seed.
 
 Run from the YOLO repository. --dry-run prints the plan without writing or training.
 Only report metadata are copied; original checkpoints and datasets stay in place.
@@ -41,6 +41,7 @@ def signature(cfg):
         "hxe_alpha",
         "hxe_weight",
         "hxe_taxonomy",
+        "seed",
     }
     if not float(cfg.get("soft_weight", 0)):
         ignored.update(key for key in cfg if key.startswith("soft_"))
@@ -154,6 +155,17 @@ def main():
     )
     parser.add_argument("--alphas", nargs="+", type=float, default=[0.1, 0.2, 0.4, 0.6])
     parser.add_argument("--lambdas", nargs="+", type=float, default=[1.0])
+    parser.add_argument(
+        "--seeds",
+        nargs="+",
+        type=int,
+        help="Seeds shared by native and HXE; defaults to the seed in --ce-run",
+    )
+    parser.add_argument(
+        "--fresh",
+        action="store_true",
+        help="Retrain every requested configuration, including CE, in an empty campaign directory",
+    )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     if any(not math.isfinite(v) or v < 0 for v in args.alphas):
@@ -164,6 +176,10 @@ def main():
         args.lambdas
     ):
         parser.error("Do not repeat alpha or lambda values")
+    if args.seeds is not None and (
+        any(seed < 0 for seed in args.seeds) or len(set(args.seeds)) != len(args.seeds)
+    ):
+        parser.error("Seeds must be distinct nonnegative integers")
     dataset, ce, campaign = [
         p.expanduser().resolve()
         for p in (args.dataset_dir, args.ce_run, args.campaign_dir)
@@ -185,7 +201,10 @@ def main():
         raise ValueError(
             "The finalized data.yaml and taxonomy_megalodon.json are required"
         )
-    seed, image_size = int(base["seed"]), int(base.get("imgsz", 640))
+    seeds = args.seeds if args.seeds is not None else [int(base["seed"])]
+    image_size = int(base.get("imgsz", 640))
+    if args.fresh and campaign.exists() and any(campaign.iterdir()):
+        raise ValueError("--fresh requires an empty or new --campaign-dir")
     initial_model = str(base["model"])
     if Path(initial_model).name in {"best.pt", "last.pt"}:
         raise ValueError(
@@ -199,14 +218,11 @@ def main():
 
         version = __version__
         supports_soft = "soft_weight" in DEFAULT_CFG_DICT
-    train_roots = [
-        args.train_root.expanduser().resolve()
-        if args.train_root
-        else runs / "detect/fathomnet-megalodon",
-        campaign / "detect",
-    ]
+    train_roots = [runs / "detect/fathomnet-megalodon", campaign / "detect"]
+    if args.train_root:
+        train_roots.append(args.train_root.expanduser().resolve())
     candidates = sorted(
-        {p.parent for root in train_roots for p in root.glob("*/args.yaml")}
+        {ce} | {p.parent for root in train_roots for p in root.glob("*/args.yaml")}
     )
     evaluation_roots = [runs / "megalodon-hierarchy", campaign / "fathomnet-hierarchy"]
     evaluation_folders = sorted(
@@ -220,25 +236,28 @@ def main():
         evaluation_folders.insert(0, args.ce_eval.expanduser().resolve())
     data_hash, tax_hash = sha256(data), sha256(taxonomy)
 
-    def evaluate(run):
-        copy_metadata(
-            run,
-            campaign / "detect" / run.name,
-            ["args.yaml", "results.csv"],
-            args.dry_run,
-        )
+    def evaluate(run, prospective=False):
         name = run.name + "_val"
-        for old in evaluation_folders:
-            if cached_evaluation(old, run, data_hash, tax_hash, image_size, version):
-                target = campaign / "fathomnet-hierarchy" / name
-                copy_metadata(
-                    old,
-                    target,
-                    ["evaluation_summary.json", "hierarchy_matches.json"],
-                    args.dry_run,
-                )
-                print(f"Reusing evaluation: {old}")
-                return
+        if not prospective:
+            copy_metadata(
+                run,
+                campaign / "detect" / run.name,
+                ["args.yaml", "results.csv"],
+                args.dry_run,
+            )
+            for old in evaluation_folders:
+                if cached_evaluation(
+                    old, run, data_hash, tax_hash, image_size, version
+                ):
+                    target = campaign / "fathomnet-hierarchy" / name
+                    copy_metadata(
+                        old,
+                        target,
+                        ["evaluation_summary.json", "hierarchy_matches.json"],
+                        args.dry_run,
+                    )
+                    print(f"Reusing evaluation: {old}")
+                    return
         target = campaign / "fathomnet-hierarchy" / name
         if target.exists():
             raise ValueError(
@@ -285,99 +304,76 @@ def main():
         ):
             raise ValueError(f"Evaluation could not be validated: {target}")
 
-    evaluate(ce)
-    for weight in args.lambdas:
-        for alpha in args.alphas:
-            matching = []
+    def train_one(seed, alpha, weight):
+        matching = []
+        if not args.fresh:
             for folder in candidates:
                 cfg = configuration(folder)
                 if (
                     Path(str(cfg.get("data", ""))).expanduser().resolve() == data
                     and signature(cfg) == signature(base)
+                    and int(cfg.get("seed", -1)) == seed
                     and not float(cfg.get("soft_weight", 0))
                     and math.isclose(float(cfg.get("hxe_weight", 0)), weight)
-                    and math.isclose(float(cfg.get("hxe_alpha", 0)), alpha)
+                    and (
+                        not weight
+                        or math.isclose(float(cfg.get("hxe_alpha", 0)), alpha)
+                    )
                     and completed(folder, cfg)
                 ):
                     matching.append(folder)
-            if matching:
-                folder = matching[0]
-                print(
-                    f"Reusing trained run for alpha={alpha:g}, lambda={weight:g}: {folder}"
-                )
-                evaluate(folder)
-                continue
-            tag = lambda v: str(float(v)).replace(".", "p")
-            name = f"megalodon_grid_hxe_a{tag(alpha)}_w{tag(weight)}_seed{seed}"
-            folder = campaign / "detect" / name
-            if folder.exists():
+        if matching:
+            folder = min(matching, key=lambda item: (item != ce, str(item)))
+            label = f"alpha={alpha:g}, lambda={weight:g}" if weight else "native CE"
+            print(f"Reusing trained run for {label}, seed={seed}: {folder}")
+            evaluate(folder)
+            return
+        tag = lambda value: str(float(value)).replace(".", "p")
+        name = (
+            f"megalodon_grid_hxe_a{tag(alpha)}_w{tag(weight)}_seed{seed}"
+            if weight
+            else f"megalodon_grid_native_seed{seed}"
+        )
+        folder = campaign / "detect" / name
+        if folder.exists():
+            raise ValueError(f"Incomplete or incompatible training directory: {folder}")
+        command = [
+            "yolo",
+            "detect",
+            "train",
+            f"cfg={ce / 'args.yaml'}",
+            f"model={initial_model}",
+            f"data={data}",
+            f"seed={seed}",
+            "resume=False",
+            f"save_dir={folder}",
+            "exist_ok=False",
+            f"project={base.get('project') or 'fathomnet-megalodon'}",
+            f"name={name}",
+            f"hxe_weight={weight}",
+            f"hxe_alpha={alpha}",
+            f"hxe_taxonomy={taxonomy if weight else 'None'}",
+        ]
+        if supports_soft:
+            command.append("soft_weight=0")
+        execute(command, args.dry_run)
+        if args.dry_run:
+            evaluate(folder, prospective=True)
+        else:
+            if not completed(folder, configuration(folder)):
                 raise ValueError(
-                    f"Incomplete or incompatible training directory: {folder}"
+                    f"Training did not reach the configured epoch budget: {folder}"
                 )
-            command = [
-                "yolo",
-                "detect",
-                "train",
-                f"cfg={ce / 'args.yaml'}",
-                f"model={initial_model}",
-                f"data={data}",
-                "resume=False",
-                f"save_dir={folder}",
-                "exist_ok=False",
-                f"project={base.get('project') or 'fathomnet-megalodon'}",
-                f"name={name}",
-                f"hxe_weight={weight}",
-                f"hxe_alpha={alpha}",
-                f"hxe_taxonomy={taxonomy}",
-            ]
-            if supports_soft:
-                command.append("soft_weight=0")
-            execute(command, args.dry_run)
-            if args.dry_run:
-                execute(
-                    [
-                        sys.executable,
-                        "-m",
-                        "fathomnet_yolo.evaluate_hierarchy",
-                        "--model",
-                        folder / "weights/best.pt",
-                        "--data",
-                        data,
-                        "--taxonomy",
-                        taxonomy,
-                        "--split",
-                        "val",
-                        "--imgsz",
-                        image_size,
-                        "--batch",
-                        16,
-                        "--device",
-                        0,
-                        "--workers",
-                        4,
-                        "--diagnostic-conf",
-                        0.25,
-                        "--match-iou",
-                        0.5,
-                        "--iou",
-                        0.7,
-                        "--max-det",
-                        300,
-                        "--distance-mode",
-                        "edge_count",
-                        "--project",
-                        campaign / "fathomnet-hierarchy",
-                        "--name",
-                        name + "_val",
-                    ],
-                    True,
-                )
-            else:
-                if not completed(folder, configuration(folder)):
-                    raise ValueError(
-                        f"Training did not reach the configured epoch budget: {folder}"
-                    )
-                evaluate(folder)
+            evaluate(folder)
+
+    count = len(seeds) * (1 + len(args.alphas) * len(args.lambdas))
+    print(f"Seeds: {seeds}; {count} configurations including one native CE per seed.")
+    for seed in seeds:
+        train_one(seed, 0.0, 0.0)
+        for weight in args.lambdas:
+            for alpha in args.alphas:
+                train_one(seed, alpha, weight)
+
     command = [
         sys.executable,
         "-m",
