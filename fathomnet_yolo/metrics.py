@@ -1,4 +1,4 @@
-"""Add AHD@k and mistake severity metrics"""
+"""Add AHD@k and mistake severity metrics."""
 
 import numpy as np
 
@@ -14,20 +14,19 @@ def _targets(values, count):
 
 
 def classification_metrics(targets, scores, taxonomy, topk=(1, 5, 20)):
-    """Compute metrics in the detector class order, preserving unknown ranks
+    """Compute metrics in the detector class order, preserving unknown ranks.
 
-    Empty populations yield ``None`` rates. For nonempty populations with no
-    mistakes, severity is zero, matching the preceding classification protocol.
-    At a rank only known ground-truth ancestors enter the denominator; a
-    prediction without this ancestor counts as incorrect. Score ties are
-    resolved by increasing class ID. ``@k`` uses ``min(k, num_classes)`` labels
+    Empty populations yield ``None`` rates. For nonempty populations with no mistakes, severity is zero, matching the
+    preceding classification protocol. At a rank only known ground-truth ancestors enter the denominator; a prediction
+    without this ancestor counts as incorrect. Score ties are resolved by increasing class ID. ``@k`` uses ``min(k,
+    num_classes)`` labels
     """
     count = len(taxonomy.class_names)
     targets = _targets(targets, count)
     scores = np.asarray(scores, dtype=np.float64)
     if scores.shape != (len(targets), count) or not np.isfinite(scores).all():
         raise ValueError("Scores must be finite with shape (num_objects, num_classes)")
-    topk = tuple(sorted(set((1, *topk))))
+    topk = tuple(sorted({1, *topk}))
     if any(type(k) is not int or k < 1 for k in topk):
         raise ValueError("topk values must be positive integers")
     ranking = np.argsort(-scores, axis=1, kind="stable")
@@ -69,12 +68,11 @@ def _boxes(values):
 
 
 def match_boxes(gt_boxes, pred_boxes, confidences, iou_threshold=0.5):
-    """Greedily match by decreasing IoU, independently of classes
+    """Greedily match by decreasing IoU, independently of classes.
 
-    Both arrays must use the same coordinate system. Ties use decreasing
-    prediction confidence, then increasing prediction index and GT index.
-    Returns ``(gt_index, pred_index, iou)`` triples. This diagnostic assignment
-    is deliberately separate from AP matching, and does not maximize cardinality
+    Both arrays must use the same coordinate system. Ties use decreasing prediction confidence, then increasing
+    prediction index and GT index. Returns ``(gt_index, pred_index, iou)`` triples. This diagnostic assignment is
+    deliberately separate from AP matching, and does not maximize cardinality
     """
     gt_boxes, pred_boxes = _boxes(gt_boxes), _boxes(pred_boxes)
     confidences = np.asarray(confidences, dtype=np.float64)
@@ -100,13 +98,12 @@ def match_boxes(gt_boxes, pred_boxes, confidences, iou_threshold=0.5):
 
 
 class DetectionHierarchyAccumulator:
-    """Aggregate conditional taxonomy scores and box coverage over images
+    """Aggregate conditional taxonomy scores and box coverage over images.
 
-    Call ``update`` with predictions *after NMS* and their complete sigmoid
-    score vectors; apply identical NMS settings to every compared experiment
-    The common confidence threshold is applied here to each vector's maximum
-    Unmatched prediction counts concern geometry only: a localized object with
-    a wrong label is matched and included as a classification error
+    Call ``update`` with predictions *after NMS* and their complete sigmoid score vectors; apply identical NMS settings
+    to every compared experiment The common confidence threshold is applied here to each vector's maximum Unmatched
+    prediction counts concern geometry only: a localized object with a wrong label is matched and included as a
+    classification error
     """
 
     def __init__(self, taxonomy, iou_threshold=0.5, conf_threshold=0.25, topk=(1, 5, 20)):
@@ -120,7 +117,7 @@ class DetectionHierarchyAccumulator:
         self._targets, self._scores, self._ious = [], [], []
 
     def update(self, gt_boxes, gt_classes, pred_boxes, pred_scores):
-        """Add one image and return matches in the original prediction indexing"""
+        """Add one image and return matches in the original prediction indexing."""
         gt_boxes, pred_boxes = _boxes(gt_boxes), _boxes(pred_boxes)
         gt_classes = _targets(gt_classes, len(self.taxonomy.class_names))
         scores = np.asarray(pred_scores, dtype=np.float64)
@@ -144,7 +141,7 @@ class DetectionHierarchyAccumulator:
         return [(gt, int(kept[pred]), overlap) for gt, pred, overlap in matches]
 
     def compute(self, taxonomy=None):
-        """Return matched-object metrics, optionally using a second distance convention"""
+        """Return matched-object metrics, optionally using a second distance convention."""
         taxonomy = taxonomy or self.taxonomy
         if (taxonomy.class_names, taxonomy.class_node_ids) != (
             self.taxonomy.class_names,
