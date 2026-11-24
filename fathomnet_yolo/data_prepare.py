@@ -1,5 +1,4 @@
-"""Check images and anontations 
-"""
+"""Check images and anontations."""
 
 import argparse
 import csv
@@ -19,7 +18,7 @@ SPLITS = ("train", "val", "test")
 
 
 class DatasetValidationError(ValueError):
-    """An input failed validation; details are recorded in the output audit.json"""
+    """An input failed validation; details are recorded in the output audit.json."""
 
 
 def _write_json(path, value):
@@ -105,13 +104,12 @@ def _load_csv_labels(path, categories, id_column, label_column, errors):
 
 
 def _assign_splits(records, annotations, class_ids, fractions, seed):
-    """Balance groups, then prioritize class coverage over exact split proportions
+    """Balance groups, then prioritize class coverage over exact split proportions.
 
-    A class represented by enough groups should occur in every active split.
-    Coverage repair moves whole groups and never removes a donor's required
-    class coverage. Classes with too few groups prioritize the training split.
-    Conflicting coverage constraints can still leave a class absent; the audit
-    reports the actual coverage rather than claiming exact stratification.
+    A class represented by enough groups should occur in every active split. Coverage repair moves whole groups and
+    never removes a donor's required class coverage. Classes with too few groups prioritize the training split.
+    Conflicting coverage constraints can still leave a class absent; the audit reports the actual coverage rather than
+    claiming exact stratification.
     """
     grouped = defaultdict(list)
     for record in records.values():
@@ -214,16 +212,16 @@ def prepare_dataset(
         csv_id_column (str): Exact CSV column containing COCO annotation ids
         csv_label_column (str): Exact CSV column containing category ids or exact names
         image_naming (str): auto, file_name or image_id (official FGVC downloader naming)
-        group_by (str): auto, dive or image. Dive requires explicit dive/video
-            groups; auto also uses capture days or image-level groups with warnings
+        group_by (str): auto, dive or image. Dive requires explicit dive/video groups; auto also uses capture days or
+            image-level groups with warnings
         fractions (tuple): Desired train, validation and test image fractions
         seed (int): Seed used for group ordering and split reproducibility
         link_mode (str): auto, symlink, hardlink or copy. Auto uses hardlinks on Windows
         verify_images (bool): Read image headers and verify files with Pillow
-        box_policy (str): error rejects out-of-image boxes; clip intersects them
-            with the image and explicitly excludes intersections of zero area
-        duplicate_policy (str): error rejects exact class/box duplicates; drop
-            retains their first annotation and records every excluded id
+        box_policy (str): error rejects out-of-image boxes; clip intersects them with the image and explicitly excludes
+            intersections of zero area
+        duplicate_policy (str): error rejects exact class/box duplicates; drop retains their first annotation and
+            records every excluded id
 
     Returns:
         (dict): Audit including actual split distributions and missing classes.
@@ -597,7 +595,7 @@ def prepare_dataset(
 
 
 def main():
-    """Run the preparation CLI without importing Ultralytics or downloading images"""
+    """Run the preparation CLI without importing Ultralytics or downloading images."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--coco", required=True)
     parser.add_argument("--images-dir", required=True)

@@ -40,9 +40,7 @@ def prepare_sunburst(
         data["dataset"] = "fgvc2025"
     elif dataset == "megalodon":
         title = title or "Megalodon · Hierarchical distribution"
-        data, notes = prepare_megalodon(
-            taxonomy, class_map, export_summary, concept_resolution, title
-        )
+        data, notes = prepare_megalodon(taxonomy, class_map, export_summary, concept_resolution, title)
         # The shared adapter's blue/grey legend belongs to the node-link explorer.
         notes = [note for note in notes if not note.startswith("Blue nodes are")]
         data["dataset"] = "megalodon"
@@ -53,9 +51,7 @@ def prepare_sunburst(
     def annotate(node):
         learned = node["originals"]
         if len(learned) > 1:
-            raise ValueError(
-                "Multiple detector classes mapped to one taxon must be resolved before plotting"
-            )
+            raise ValueError("Multiple detector classes mapped to one taxon must be resolved before plotting")
         for record in learned:
             record.setdefault("aliases", [])
             classes_by_rank[node["rank"] or "unranked"] += 1
@@ -75,13 +71,11 @@ def prepare_sunburst(
         "The angular space without child sectors represents assignments to that taxon itself."
     )
     notes.append(
-        "Colours identify phyla. Saturated sectors are learned dataset classes; "
+        "Colors identify phyla. Saturated sectors are learned dataset classes; "
         "muted sectors are added taxonomic ancestors. This status follows the class mapping, "
         "regardless of the selected split's annotation counts."
     )
-    notes.append(
-        "Rings follow tree depth. Missing or additional taxonomic ranks are preserved as recorded."
-    )
+    notes.append("Rings follow tree depth. Missing or additional taxonomic ranks are preserved as recorded.")
     return data, notes
 
 
@@ -98,9 +92,7 @@ def generate(
     dataset_dir=None,
 ):
     """Write one portable HTML without loading image pixels or a checkpoint."""
-    assets = (
-        Path(assets_dir) if assets_dir else Path(__file__).with_name("sunburst_assets")
-    )
+    assets = Path(assets_dir) if assets_dir else Path(__file__).with_name("sunburst_assets")
     paths = {"taxonomy": Path(taxonomy_path)}
     optional = {
         "class_map": class_map_path,
@@ -108,29 +100,19 @@ def generate(
         "export_summary": export_summary_path,
         "concept_resolution": concept_resolution_path,
     }
-    paths.update(
-        {name: Path(path) for name, path in optional.items() if path is not None}
-    )
+    paths.update({name: Path(path) for name, path in optional.items() if path is not None})
     if dataset == "fgvc" and (export_summary_path or concept_resolution_path):
-        raise ValueError(
-            "Use --coco for FGVC counts. Export summaries and concept resolution apply to Megalodon."
-        )
+        raise ValueError("Use --coco for FGVC counts. Export summaries and concept resolution apply to Megalodon.")
     if dataset == "megalodon" and coco_path:
-        raise ValueError(
-            "Use the final export summary for Megalodon rather than the original single-class COCO"
-        )
+        raise ValueError("Use the final export summary for Megalodon rather than the original single-class COCO")
     if dataset_dir is not None and dataset != "megalodon":
-        raise ValueError(
-            "Use --coco for FGVC image counts; --dataset-dir applies to Megalodon"
-        )
+        raise ValueError("Use --coco for FGVC image counts; --dataset-dir applies to Megalodon")
     if dataset_dir is not None and export_summary_path is None:
         raise ValueError("--dataset-dir requires the final --export-summary")
     output = Path(output_path)
     template_path, library_path = assets / "template.html", assets / "d3.v7.9.0.min.js"
-    for path in list(paths.values()) + [template_path, library_path]:
-        if output.resolve() == path.resolve() or (
-            output.exists() and path.exists() and os.path.samefile(output, path)
-        ):
+    for path in [*list(paths.values()), template_path, library_path]:
+        if output.resolve() == path.resolve() or (output.exists() and path.exists() and os.path.samefile(output, path)):
             raise ValueError("Output must differ from every source and resource")
     contents, sources = {}, []
     for role, path in paths.items():
@@ -140,13 +122,9 @@ def generate(
     for role in ("class_map", "concept_resolution"):
         recorded = provenance.get(role, {}).get("sha256")
         if role in contents and recorded:
-            actual = next(
-                source["sha256"] for source in sources if source["role"] == role
-            )
+            actual = next(source["sha256"] for source in sources if source["role"] == role)
             if actual != recorded:
-                raise ValueError(
-                    f"The {role} file differs from the source used to construct this taxonomy"
-                )
+                raise ValueError(f"The {role} file differs from the source used to construct this taxonomy")
     data, notes = prepare_sunburst(
         dataset,
         contents["taxonomy"],
@@ -166,11 +144,7 @@ def generate(
         )
         sources.extend(image_report["sources"])
         notes = [
-            note
-            for note in notes
-            if not note.startswith(
-                "Distinct image counts by class or subtree are unavailable"
-            )
+            note for note in notes if not note.startswith("Distinct image counts by class or subtree are unavailable")
         ]
         notes.extend(image_report["notes"])
     if data["tree"].get("subtree_images") is not None:
@@ -191,9 +165,7 @@ def generate(
     for token in ("__D3_SOURCE__", "__TREE_DATA__"):
         if template.count(token) != 1:
             raise ValueError(f"Expected exactly one {token}")
-    html = template.replace("__D3_SOURCE__", library).replace(
-        "__TREE_DATA__", embedded_json(data)
-    )
+    html = template.replace("__D3_SOURCE__", library).replace("__TREE_DATA__", embedded_json(data))
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = None
     try:
@@ -212,13 +184,9 @@ def generate(
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="dataset", required=True)
-    fgvc = commands.add_parser(
-        "fgvc", help="FGVC2025 taxonomy with optional raw COCO annotation counts"
-    )
+    fgvc = commands.add_parser("fgvc", help="FGVC2025 taxonomy with optional raw COCO annotation counts")
     fgvc.add_argument("--coco", type=Path)
-    megalodon = commands.add_parser(
-        "megalodon", help="Final multiclass Megalodon dataset"
-    )
+    megalodon = commands.add_parser("megalodon", help="Final multiclass Megalodon dataset")
     megalodon.add_argument("--export-summary", type=Path)
     megalodon.add_argument("--concept-resolution", type=Path)
     megalodon.add_argument(
@@ -247,9 +215,7 @@ def main():
     except (OSError, ValueError, TypeError, KeyError) as error:
         parser.exit(1, f"Error: {error}\n")
     print(f"HTML written to {args.output.resolve()}")
-    print(
-        f"{summary['original_classes']} learned classes, {summary['nodes']} taxonomic nodes."
-    )
+    print(f"{summary['original_classes']} learned classes, {summary['nodes']} taxonomic nodes.")
 
 
 if __name__ == "__main__":

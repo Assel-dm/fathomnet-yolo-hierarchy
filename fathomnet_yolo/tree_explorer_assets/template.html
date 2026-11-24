@@ -1,156 +1,830 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light">
-  <title>iNaturalist taxonomy explorer</title>
-  <style>
-    :root { --ink:#143c4a; --muted:#5c737c; --ocean:#086f98; --ocean-deep:#075471; --line:#d6e4e8; --soft:#eef6f8; --paper:#fff; }
-    * { box-sizing:border-box; }
-    html,body { margin:0; min-height:100%; }
-    body { background:#f4f8f9; color:var(--ink); font-family:Inter,"Segoe UI",Arial,sans-serif; font-size:14px; line-height:1.5; }
-    button,input { font:inherit; }
-    button { cursor:pointer; }
-    button:focus-visible,input:focus-visible,a:focus-visible { outline:3px solid #45a8cb; outline-offset:3px; }
-    button { color:var(--ink); }
-    .page { width:min(1680px,100%); margin:auto; padding:27px 32px 20px; }
-    .masthead { display:flex; justify-content:space-between; align-items:flex-start; gap:24px; margin-bottom:22px; }
-    .eyebrow { margin:0 0 7px; color:var(--ocean); font-size:11px; letter-spacing:.14em; font-weight:750; text-transform:uppercase; }
-    h1 { margin:0; font-size:clamp(25px,2.4vw,36px); font-weight:650; letter-spacing:-.045em; line-height:1.15; }
-    .intro { margin:10px 0 0; color:var(--muted); max-width:760px; }
-    .offline { flex:none; display:flex; align-items:center; gap:7px; margin-top:6px; border:1px solid #cddfe5; border-radius:20px; padding:5px 11px; font-size:11px; color:var(--ocean-deep); }
-    .offline span { width:6px; height:6px; border-radius:50%; background:#4d9c95; }
-    .summary { display:flex; flex-wrap:wrap; gap:9px 27px; padding:0 0 22px; color:var(--muted); font-size:12px; }
-    .summary strong { color:var(--ink); font-size:18px; font-weight:650; margin-right:5px; font-variant-numeric:tabular-nums; }
-    .workspace { border:1px solid var(--line); border-radius:13px; overflow:hidden; background:var(--paper); box-shadow:0 7px 30px #153e4a05; }
-    .toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px; padding:16px 18px; border-bottom:1px solid var(--line); position:relative; z-index:5; }
-    .search-wrap { position:relative; flex:1; min-width:250px; max-width:520px; }
-    .search-icon { position:absolute; left:12px; top:12px; width:17px; height:17px; pointer-events:none; color:var(--muted); }
-    #search { display:block; width:100%; height:41px; border:1px solid #c9dce2; border-radius:7px; padding:8px 36px 8px 38px; color:var(--ink); background:#fbfdfe; }
-    #search::placeholder { color:#6c838c; }
-    .clear-search { position:absolute; right:5px; top:5px; width:31px; height:31px; border:0; background:transparent; border-radius:5px; color:var(--muted); font-size:20px; line-height:1; }
-    .clear-search:hover { background:var(--soft); }
-    .search-panel { position:absolute; top:48px; left:0; width:100%; min-width:280px; max-height:420px; overflow:auto; background:#fff; border:1px solid #cbdfe5; border-radius:9px; box-shadow:0 12px 36px #123e4d22; }
-    .search-note { margin:0; padding:10px 13px; color:var(--muted); font-size:11px; border-bottom:1px solid var(--line); }
-    .search-results { list-style:none; margin:0; padding:5px; }
-    .search-result { display:block; width:100%; text-align:left; border:0; border-radius:5px; padding:9px 10px; background:#fff; }
-    .search-result:hover,.search-result[aria-selected="true"] { background:var(--soft); }
-    .search-result strong { display:block; font-weight:650; }
-    .search-result small { display:block; margin-top:2px; color:var(--muted); font-size:11px; overflow-wrap:anywhere; }
-    .toolbar-actions { display:flex; gap:6px; align-items:center; margin-left:auto; flex-wrap:wrap; }
-    .tool-button { padding:8px 11px; min-height:37px; border:1px solid #d3e2e7; border-radius:6px; background:#fff; font-size:12px; font-weight:550; white-space:nowrap; }
-    .tool-button:hover { border-color:#88b7c7; background:#f2f8fa; }
-    .tool-button.primary { border-color:#bad7e1; color:var(--ocean-deep); background:#edf6f9; }
-    .explorer { display:grid; grid-template-columns:minmax(0,1fr) 305px; min-height:560px; }
-    .tree-area { position:relative; height:clamp(535px,67vh,820px); min-width:0; overflow:hidden; background:radial-gradient(circle at 1px 1px,#bed4dc77 1px,transparent 1px) 17px 17px/22px 22px,#fbfdfe; }
-    #tree-svg { display:block; width:100%; height:100%; touch-action:none; cursor:grab; }
-    #tree-svg:active { cursor:grabbing; }
-    #tree-svg:focus-visible { outline:3px solid #45a8cb; outline-offset:-4px; }
-    .zoom-controls { position:absolute; left:17px; bottom:17px; display:flex; align-items:center; overflow:hidden; border:1px solid #cddfe5; border-radius:6px; box-shadow:0 2px 8px #153e4a08; background:#fff; }
-    .zoom-controls button { height:33px; width:33px; border:0; background:#fff; font-size:20px; color:var(--ocean-deep); }
-    .zoom-controls button:hover { background:var(--soft); }
-    .zoom-controls button+button { border-left:1px solid var(--line); }
-    #zoom-value { font-variant-numeric:tabular-nums; font-size:10px; min-width:48px; padding:0 8px; text-align:center; border-left:1px solid var(--line); }
-    .canvas-hint { position:absolute; right:16px; bottom:17px; color:#6a828c; font-size:10px; border-radius:4px; padding:5px 7px; background:#ffffffd9; pointer-events:none; }
-    .details { border-left:1px solid var(--line); padding:23px 21px; overflow-wrap:anywhere; height:clamp(535px,67vh,820px); overflow:auto; }
-    .panel-label { margin:0 0 11px; color:var(--muted); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.12em; }
-    .details h2 { margin:0 0 11px; line-height:1.25; font-size:23px; font-weight:650; letter-spacing:-.025em; }
-    .badges { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:21px; }
-    .badge { display:inline-flex; align-items:center; gap:5px; padding:3px 7px; border-radius:4px; background:#edf5f8; font-size:10px; font-weight:650; color:#09698d; }
-    .detail-list { margin:0; }
-    .detail-list > div { display:grid; grid-template-columns:1fr 1.2fr; gap:12px; margin:0 0 10px; align-items:baseline; }
-    .detail-list dt { color:var(--muted); font-size:11px; }
-    .detail-list dd { margin:0; font-size:12px; text-align:right; font-variant-numeric:tabular-nums; }
-    .detail-section { padding-top:19px; margin-top:19px; border-top:1px solid var(--line); }
-    .detail-section h3 { font-size:11px; font-weight:700; margin:0 0 10px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
-    .detail-empty { color:var(--muted); font-size:12px; margin:0; }
-    .breadcrumb { display:flex; flex-wrap:wrap; align-items:center; gap:3px 5px; font-size:11px; }
-    .breadcrumb button { border:0; padding:1px 0; color:var(--ocean); background:transparent; font-size:11px; text-align:left; }
-    .breadcrumb button:hover { text-decoration:underline; }
-    .breadcrumb span { color:#8aa0a8; }
-    .legend-bar { display:flex; flex-wrap:wrap; align-items:center; gap:10px 24px; padding:13px 18px; border-top:1px solid var(--line); font-size:11px; }
-    .legend { display:flex; align-items:center; flex-wrap:wrap; gap:9px 18px; }
-    .legend-item { display:flex; align-items:center; gap:7px; }
-    .legend-circle { display:inline-block; width:10px; height:10px; border-radius:50%; border:1.5px solid #086f98; background:#fff; }
-    .legend-circle.species { border-color:#086f98; background:#086f98; }
-    #tree-status { margin-left:auto; color:var(--muted); font-size:10px; font-variant-numeric:tabular-nums; }
-    .footer { display:flex; justify-content:space-between; align-items:baseline; gap:14px; padding:14px 1px 0; color:var(--muted); font-size:10px; }
-    .footer p { margin:0; }
-    .footer details { text-align:right; max-width:70%; }
-    .footer summary { cursor:pointer; color:var(--ocean-deep); white-space:nowrap; }
-    .provenance { text-align:left; background:#edf4f6; padding:10px 12px; margin-top:7px; border-radius:5px; overflow-wrap:anywhere; }
-    .provenance p+p { margin-top:6px; }
-    .provenance strong { color:var(--ink); }
-    .provenance code { font-size:9px; }
-    .tree-link { fill:none; stroke:#c1d6de; stroke-width:1.3; }
-    .tree-node { cursor:pointer; outline:none; }
-    .node-halo { fill:transparent; stroke:transparent; stroke-width:1.5; }
-    .tree-node.selected .node-halo { fill:#e6f3f8; stroke:#91c4d7; }
-    .tree-node:focus-visible .node-halo { stroke:#08749e; stroke-width:2.5; }
-    .node-dot { fill:#fff; stroke:#086f98; stroke-width:1.5; }
-    .tree-node.species .node-dot { fill:#086f98; stroke:#086f98; }
-    .tree-node.collapsed .node-dot { stroke-width:2.5; }
-    .node-label { fill:#214b5b; font-size:12px; font-weight:450; paint-order:stroke; stroke:#fbfdfe; stroke-width:4px; stroke-linejoin:round; }
-    .tree-node.species .node-label { fill:#075f85; font-weight:650; }
-    .tree-node.selected .node-label { fill:#074d69; }
-    .branch-mark { font-size:8px; text-anchor:middle; fill:#526c77; pointer-events:none; font-weight:700; }
-    .tree-node.species .branch-mark { fill:#fff; }
-    .rank-summary { flex-basis:100%; font-size:11px; color:var(--muted); }
-    .branch-page { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:12px; }
-    .branch-page p { flex-basis:100%; margin:0; color:var(--muted); font-size:11px; }
-    button:disabled { opacity:.45; cursor:default; }
-    .branch-page button { padding:6px 9px; }
-    .sr-only { position:absolute!important; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-    [hidden] { display:none!important; }
-    @media(min-width:1500px) { .explorer { grid-template-columns:minmax(0,1fr) 330px; } }
-    @media(max-width:980px) { .page { padding:23px 18px 16px; } .explorer { grid-template-columns:minmax(0,1fr) 270px; } .details { padding:20px 16px; } .toolbar-actions { margin-left:0; } .search-wrap { max-width:none; } .toolbar { gap:11px; } .canvas-hint { display:none; } }
-    @media(max-width:700px) { .page { padding:20px 12px 14px; } .masthead { gap:12px; margin-bottom:18px; } .offline { font-size:0; padding:8px; margin-top:2px; } .offline span { width:7px; height:7px; } .intro { font-size:12px; } .summary { gap:8px 17px; padding-bottom:17px; } .summary strong { font-size:16px; } .summary span { font-size:10px; } .toolbar { padding:12px; } .search-wrap { min-width:100%; } .toolbar-actions { width:100%; gap:5px; } .tool-button { flex:1; padding:7px 6px; font-size:10px; min-height:34px; } .explorer { display:block; min-height:0; } .tree-area { height:48vh; min-height:320px; max-height:440px; } .details { border-left:0; border-top:1px solid var(--line); height:auto; max-height:none; padding:20px; } .details h2 { font-size:22px; } .detail-list { max-width:500px; } .legend-bar { padding:12px; gap:9px; font-size:10px; } .legend { gap:8px 13px; } #tree-status { width:100%; margin-left:0; } .footer { align-items:flex-start; } .footer details { max-width:57%; } }
-    @media(prefers-reduced-motion:reduce) { * { scroll-behavior:auto!important; } }
-  </style>
-</head>
-<body>
-<main class="page" id="app-root" data-explorer-root="inaturalist-taxonomy">
-  <header class="masthead">
-    <div><p class="eyebrow">iNaturalist · Taxonomy</p><h1 id="page-title">Explore the taxonomy</h1><p class="intro">Explore from broad groups to species. Search scientific names, common names, ranks, or IDs to reveal any node.</p></div>
-    <div class="offline" aria-label="Self-contained offline explorer"><span aria-hidden="true"></span>Offline explorer</div>
-  </header>
-  <div class="summary" id="summary" aria-label="Dataset summary"></div>
-  <section class="workspace" aria-label="Interactive taxonomy explorer">
-    <div class="toolbar" id="tree-controls" data-controls="top-left">
-      <div class="search-wrap" id="search-wrap">
-        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
-        <label class="sr-only" for="search">Search scientific names, common names, ranks, class IDs, or node IDs</label>
-        <input id="search" type="search" placeholder="Search names, ranks, or IDs…" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-controls="search-results" aria-expanded="false">
-        <button class="clear-search" id="clear-search" aria-label="Clear search" hidden>×</button>
-        <div class="search-panel" id="search-panel" hidden><p class="search-note" id="search-note"></p><ul class="search-results" id="search-results" role="listbox" aria-label="Matching taxonomy nodes"></ul></div>
-      </div>
-      <div class="toolbar-actions" aria-label="Tree controls">
-        <button class="tool-button" id="expand-level" title="Open the next closed level, within the 1,200-node view limit">Next level</button>
-        <button class="tool-button" id="collapse-all">Collapse all</button>
-        <button class="tool-button" id="fit-view">Fit view</button>
-        <button class="tool-button primary" id="reset-view">Reset view</button>
-      </div>
-    </div>
-    <div class="explorer">
-      <div class="tree-area" id="tree-area">
-        <svg id="tree-svg" role="tree" aria-label="Taxonomy tree. Use arrow keys to navigate, Enter or Space to open a branch." aria-describedby="tree-help"></svg>
-        <div class="zoom-controls" aria-label="Zoom controls"><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-out" aria-label="Zoom out">−</button><span id="zoom-value" aria-label="Current zoom">100%</span></div>
-        <div class="canvas-hint" aria-hidden="true">Drag to pan · Scroll to zoom</div>
-        <p class="sr-only" id="tree-help">Filled blue circles represent species classes. Outlined blue circles represent parent groups. Select a node for details. Right and left arrow keys open and close branches. Up and down arrow keys move between visible nodes. Wide branches show 80 children per page; use the selected node panel to change pages. Search covers the complete tree.</p>
-      </div>
-      <aside class="details" id="node-details" aria-label="Selected node details"><p class="panel-label">Selected node</p><div id="detail-content"></div></aside>
-    </div>
-    <div class="legend-bar">
-      <div class="legend" aria-label="Tree legend"><span class="legend-item"><i class="legend-circle species" aria-hidden="true"></i>Species class</span><span class="legend-item"><i class="legend-circle" aria-hidden="true"></i>Parent group</span><span class="legend-item">+ Closed branch</span></div>
-      <div id="tree-status" role="status" aria-live="polite"></div>
-    </div>
-  </section>
-  <footer class="footer"><p>Up to 1,200 nodes per view · 80 children per branch page · Search covers every node.</p><details><summary>Source files &amp; provenance</summary><div class="provenance" id="provenance"></div></details></footer>
-  <div class="sr-only" id="announcement" role="status" aria-live="polite"></div>
-</main>
-<script type="application/json" id="taxonomy-data">__TREE_DATA__</script>
-<!--
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>iNaturalist taxonomy explorer</title>
+    <style>
+      :root {
+        --ink: #143c4a;
+        --muted: #5c737c;
+        --ocean: #086f98;
+        --ocean-deep: #075471;
+        --line: #d6e4e8;
+        --soft: #eef6f8;
+        --paper: #fff;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+      body {
+        background: #f4f8f9;
+        color: var(--ink);
+        font-family: Inter, "Segoe UI", Arial, sans-serif;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      button,
+      input {
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      button:focus-visible,
+      input:focus-visible,
+      a:focus-visible {
+        outline: 3px solid #45a8cb;
+        outline-offset: 3px;
+      }
+      button {
+        color: var(--ink);
+      }
+      .page {
+        width: min(1680px, 100%);
+        margin: auto;
+        padding: 27px 32px 20px;
+      }
+      .masthead {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 24px;
+        margin-bottom: 22px;
+      }
+      .eyebrow {
+        margin: 0 0 7px;
+        color: var(--ocean);
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        font-weight: 750;
+        text-transform: uppercase;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(25px, 2.4vw, 36px);
+        font-weight: 650;
+        letter-spacing: -0.045em;
+        line-height: 1.15;
+      }
+      .intro {
+        margin: 10px 0 0;
+        color: var(--muted);
+        max-width: 760px;
+      }
+      .offline {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-top: 6px;
+        border: 1px solid #cddfe5;
+        border-radius: 20px;
+        padding: 5px 11px;
+        font-size: 11px;
+        color: var(--ocean-deep);
+      }
+      .offline span {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #4d9c95;
+      }
+      .summary {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 9px 27px;
+        padding: 0 0 22px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .summary strong {
+        color: var(--ink);
+        font-size: 18px;
+        font-weight: 650;
+        margin-right: 5px;
+        font-variant-numeric: tabular-nums;
+      }
+      .workspace {
+        border: 1px solid var(--line);
+        border-radius: 13px;
+        overflow: hidden;
+        background: var(--paper);
+        box-shadow: 0 7px 30px #153e4a05;
+      }
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 18px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line);
+        position: relative;
+        z-index: 5;
+      }
+      .search-wrap {
+        position: relative;
+        flex: 1;
+        min-width: 250px;
+        max-width: 520px;
+      }
+      .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 12px;
+        width: 17px;
+        height: 17px;
+        pointer-events: none;
+        color: var(--muted);
+      }
+      #search {
+        display: block;
+        width: 100%;
+        height: 41px;
+        border: 1px solid #c9dce2;
+        border-radius: 7px;
+        padding: 8px 36px 8px 38px;
+        color: var(--ink);
+        background: #fbfdfe;
+      }
+      #search::placeholder {
+        color: #6c838c;
+      }
+      .clear-search {
+        position: absolute;
+        right: 5px;
+        top: 5px;
+        width: 31px;
+        height: 31px;
+        border: 0;
+        background: transparent;
+        border-radius: 5px;
+        color: var(--muted);
+        font-size: 20px;
+        line-height: 1;
+      }
+      .clear-search:hover {
+        background: var(--soft);
+      }
+      .search-panel {
+        position: absolute;
+        top: 48px;
+        left: 0;
+        width: 100%;
+        min-width: 280px;
+        max-height: 420px;
+        overflow: auto;
+        background: #fff;
+        border: 1px solid #cbdfe5;
+        border-radius: 9px;
+        box-shadow: 0 12px 36px #123e4d22;
+      }
+      .search-note {
+        margin: 0;
+        padding: 10px 13px;
+        color: var(--muted);
+        font-size: 11px;
+        border-bottom: 1px solid var(--line);
+      }
+      .search-results {
+        list-style: none;
+        margin: 0;
+        padding: 5px;
+      }
+      .search-result {
+        display: block;
+        width: 100%;
+        text-align: left;
+        border: 0;
+        border-radius: 5px;
+        padding: 9px 10px;
+        background: #fff;
+      }
+      .search-result:hover,
+      .search-result[aria-selected="true"] {
+        background: var(--soft);
+      }
+      .search-result strong {
+        display: block;
+        font-weight: 650;
+      }
+      .search-result small {
+        display: block;
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 11px;
+        overflow-wrap: anywhere;
+      }
+      .toolbar-actions {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        margin-left: auto;
+        flex-wrap: wrap;
+      }
+      .tool-button {
+        padding: 8px 11px;
+        min-height: 37px;
+        border: 1px solid #d3e2e7;
+        border-radius: 6px;
+        background: #fff;
+        font-size: 12px;
+        font-weight: 550;
+        white-space: nowrap;
+      }
+      .tool-button:hover {
+        border-color: #88b7c7;
+        background: #f2f8fa;
+      }
+      .tool-button.primary {
+        border-color: #bad7e1;
+        color: var(--ocean-deep);
+        background: #edf6f9;
+      }
+      .explorer {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 305px;
+        min-height: 560px;
+      }
+      .tree-area {
+        position: relative;
+        height: clamp(535px, 67vh, 820px);
+        min-width: 0;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 1px 1px, #bed4dc77 1px, transparent 1px) 17px 17px/22px 22px,
+          #fbfdfe;
+      }
+      #tree-svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+        cursor: grab;
+      }
+      #tree-svg:active {
+        cursor: grabbing;
+      }
+      #tree-svg:focus-visible {
+        outline: 3px solid #45a8cb;
+        outline-offset: -4px;
+      }
+      .zoom-controls {
+        position: absolute;
+        left: 17px;
+        bottom: 17px;
+        display: flex;
+        align-items: center;
+        overflow: hidden;
+        border: 1px solid #cddfe5;
+        border-radius: 6px;
+        box-shadow: 0 2px 8px #153e4a08;
+        background: #fff;
+      }
+      .zoom-controls button {
+        height: 33px;
+        width: 33px;
+        border: 0;
+        background: #fff;
+        font-size: 20px;
+        color: var(--ocean-deep);
+      }
+      .zoom-controls button:hover {
+        background: var(--soft);
+      }
+      .zoom-controls button + button {
+        border-left: 1px solid var(--line);
+      }
+      #zoom-value {
+        font-variant-numeric: tabular-nums;
+        font-size: 10px;
+        min-width: 48px;
+        padding: 0 8px;
+        text-align: center;
+        border-left: 1px solid var(--line);
+      }
+      .canvas-hint {
+        position: absolute;
+        right: 16px;
+        bottom: 17px;
+        color: #6a828c;
+        font-size: 10px;
+        border-radius: 4px;
+        padding: 5px 7px;
+        background: #ffffffd9;
+        pointer-events: none;
+      }
+      .details {
+        border-left: 1px solid var(--line);
+        padding: 23px 21px;
+        overflow-wrap: anywhere;
+        height: clamp(535px, 67vh, 820px);
+        overflow: auto;
+      }
+      .panel-label {
+        margin: 0 0 11px;
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+      .details h2 {
+        margin: 0 0 11px;
+        line-height: 1.25;
+        font-size: 23px;
+        font-weight: 650;
+        letter-spacing: -0.025em;
+      }
+      .badges {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-bottom: 21px;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 7px;
+        border-radius: 4px;
+        background: #edf5f8;
+        font-size: 10px;
+        font-weight: 650;
+        color: #09698d;
+      }
+      .detail-list {
+        margin: 0;
+      }
+      .detail-list > div {
+        display: grid;
+        grid-template-columns: 1fr 1.2fr;
+        gap: 12px;
+        margin: 0 0 10px;
+        align-items: baseline;
+      }
+      .detail-list dt {
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .detail-list dd {
+        margin: 0;
+        font-size: 12px;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .detail-section {
+        padding-top: 19px;
+        margin-top: 19px;
+        border-top: 1px solid var(--line);
+      }
+      .detail-section h3 {
+        font-size: 11px;
+        font-weight: 700;
+        margin: 0 0 10px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .detail-empty {
+        color: var(--muted);
+        font-size: 12px;
+        margin: 0;
+      }
+      .breadcrumb {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 3px 5px;
+        font-size: 11px;
+      }
+      .breadcrumb button {
+        border: 0;
+        padding: 1px 0;
+        color: var(--ocean);
+        background: transparent;
+        font-size: 11px;
+        text-align: left;
+      }
+      .breadcrumb button:hover {
+        text-decoration: underline;
+      }
+      .breadcrumb span {
+        color: #8aa0a8;
+      }
+      .legend-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 24px;
+        padding: 13px 18px;
+        border-top: 1px solid var(--line);
+        font-size: 11px;
+      }
+      .legend {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 9px 18px;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .legend-circle {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        border: 1.5px solid #086f98;
+        background: #fff;
+      }
+      .legend-circle.species {
+        border-color: #086f98;
+        background: #086f98;
+      }
+      #tree-status {
+        margin-left: auto;
+        color: var(--muted);
+        font-size: 10px;
+        font-variant-numeric: tabular-nums;
+      }
+      .footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 14px;
+        padding: 14px 1px 0;
+        color: var(--muted);
+        font-size: 10px;
+      }
+      .footer p {
+        margin: 0;
+      }
+      .footer details {
+        text-align: right;
+        max-width: 70%;
+      }
+      .footer summary {
+        cursor: pointer;
+        color: var(--ocean-deep);
+        white-space: nowrap;
+      }
+      .provenance {
+        text-align: left;
+        background: #edf4f6;
+        padding: 10px 12px;
+        margin-top: 7px;
+        border-radius: 5px;
+        overflow-wrap: anywhere;
+      }
+      .provenance p + p {
+        margin-top: 6px;
+      }
+      .provenance strong {
+        color: var(--ink);
+      }
+      .provenance code {
+        font-size: 9px;
+      }
+      .tree-link {
+        fill: none;
+        stroke: #c1d6de;
+        stroke-width: 1.3;
+      }
+      .tree-node {
+        cursor: pointer;
+        outline: none;
+      }
+      .node-halo {
+        fill: transparent;
+        stroke: transparent;
+        stroke-width: 1.5;
+      }
+      .tree-node.selected .node-halo {
+        fill: #e6f3f8;
+        stroke: #91c4d7;
+      }
+      .tree-node:focus-visible .node-halo {
+        stroke: #08749e;
+        stroke-width: 2.5;
+      }
+      .node-dot {
+        fill: #fff;
+        stroke: #086f98;
+        stroke-width: 1.5;
+      }
+      .tree-node.species .node-dot {
+        fill: #086f98;
+        stroke: #086f98;
+      }
+      .tree-node.collapsed .node-dot {
+        stroke-width: 2.5;
+      }
+      .node-label {
+        fill: #214b5b;
+        font-size: 12px;
+        font-weight: 450;
+        paint-order: stroke;
+        stroke: #fbfdfe;
+        stroke-width: 4px;
+        stroke-linejoin: round;
+      }
+      .tree-node.species .node-label {
+        fill: #075f85;
+        font-weight: 650;
+      }
+      .tree-node.selected .node-label {
+        fill: #074d69;
+      }
+      .branch-mark {
+        font-size: 8px;
+        text-anchor: middle;
+        fill: #526c77;
+        pointer-events: none;
+        font-weight: 700;
+      }
+      .tree-node.species .branch-mark {
+        fill: #fff;
+      }
+      .rank-summary {
+        flex-basis: 100%;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .branch-page {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 12px;
+      }
+      .branch-page p {
+        flex-basis: 100%;
+        margin: 0;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      .branch-page button {
+        padding: 6px 9px;
+      }
+      .sr-only {
+        position: absolute !important;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      @media (min-width: 1500px) {
+        .explorer {
+          grid-template-columns: minmax(0, 1fr) 330px;
+        }
+      }
+      @media (max-width: 980px) {
+        .page {
+          padding: 23px 18px 16px;
+        }
+        .explorer {
+          grid-template-columns: minmax(0, 1fr) 270px;
+        }
+        .details {
+          padding: 20px 16px;
+        }
+        .toolbar-actions {
+          margin-left: 0;
+        }
+        .search-wrap {
+          max-width: none;
+        }
+        .toolbar {
+          gap: 11px;
+        }
+        .canvas-hint {
+          display: none;
+        }
+      }
+      @media (max-width: 700px) {
+        .page {
+          padding: 20px 12px 14px;
+        }
+        .masthead {
+          gap: 12px;
+          margin-bottom: 18px;
+        }
+        .offline {
+          font-size: 0;
+          padding: 8px;
+          margin-top: 2px;
+        }
+        .offline span {
+          width: 7px;
+          height: 7px;
+        }
+        .intro {
+          font-size: 12px;
+        }
+        .summary {
+          gap: 8px 17px;
+          padding-bottom: 17px;
+        }
+        .summary strong {
+          font-size: 16px;
+        }
+        .summary span {
+          font-size: 10px;
+        }
+        .toolbar {
+          padding: 12px;
+        }
+        .search-wrap {
+          min-width: 100%;
+        }
+        .toolbar-actions {
+          width: 100%;
+          gap: 5px;
+        }
+        .tool-button {
+          flex: 1;
+          padding: 7px 6px;
+          font-size: 10px;
+          min-height: 34px;
+        }
+        .explorer {
+          display: block;
+          min-height: 0;
+        }
+        .tree-area {
+          height: 48vh;
+          min-height: 320px;
+          max-height: 440px;
+        }
+        .details {
+          border-left: 0;
+          border-top: 1px solid var(--line);
+          height: auto;
+          max-height: none;
+          padding: 20px;
+        }
+        .details h2 {
+          font-size: 22px;
+        }
+        .detail-list {
+          max-width: 500px;
+        }
+        .legend-bar {
+          padding: 12px;
+          gap: 9px;
+          font-size: 10px;
+        }
+        .legend {
+          gap: 8px 13px;
+        }
+        #tree-status {
+          width: 100%;
+          margin-left: 0;
+        }
+        .footer {
+          align-items: flex-start;
+        }
+        .footer details {
+          max-width: 57%;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          scroll-behavior: auto !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page" id="app-root" data-explorer-root="inaturalist-taxonomy">
+      <header class="masthead">
+        <div>
+          <p class="eyebrow">iNaturalist · Taxonomy</p>
+          <h1 id="page-title">Explore the taxonomy</h1>
+          <p class="intro">
+            Explore from broad groups to species. Search scientific names, common names, ranks, or IDs to reveal any
+            node.
+          </p>
+        </div>
+        <div class="offline" aria-label="Self-contained offline explorer">
+          <span aria-hidden="true"></span>Offline explorer
+        </div>
+      </header>
+      <div class="summary" id="summary" aria-label="Dataset summary"></div>
+      <section class="workspace" aria-label="Interactive taxonomy explorer">
+        <div class="toolbar" id="tree-controls" data-controls="top-left">
+          <div class="search-wrap" id="search-wrap">
+            <svg
+              class="search-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              aria-hidden="true"
+            >
+              <circle cx="10.5" cy="10.5" r="6.5" />
+              <path d="m16 16 4.5 4.5" />
+            </svg>
+            <label class="sr-only" for="search"
+              >Search scientific names, common names, ranks, class IDs, or node IDs</label
+            >
+            <input
+              id="search"
+              type="search"
+              placeholder="Search names, ranks, or IDs…"
+              autocomplete="off"
+              spellcheck="false"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-controls="search-results"
+              aria-expanded="false"
+            />
+            <button class="clear-search" id="clear-search" aria-label="Clear search" hidden>×</button>
+            <div class="search-panel" id="search-panel" hidden>
+              <p class="search-note" id="search-note"></p>
+              <ul class="search-results" id="search-results" role="listbox" aria-label="Matching taxonomy nodes"></ul>
+            </div>
+          </div>
+          <div class="toolbar-actions" aria-label="Tree controls">
+            <button
+              class="tool-button"
+              id="expand-level"
+              title="Open the next closed level, within the 1,200-node view limit"
+            >
+              Next level
+            </button>
+            <button class="tool-button" id="collapse-all">Collapse all</button>
+            <button class="tool-button" id="fit-view">Fit view</button>
+            <button class="tool-button primary" id="reset-view">Reset view</button>
+          </div>
+        </div>
+        <div class="explorer">
+          <div class="tree-area" id="tree-area">
+            <svg
+              id="tree-svg"
+              role="tree"
+              aria-label="Taxonomy tree. Use arrow keys to navigate, Enter or Space to open a branch."
+              aria-describedby="tree-help"
+            ></svg>
+            <div class="zoom-controls" aria-label="Zoom controls">
+              <button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-out" aria-label="Zoom out">−</button
+              ><span id="zoom-value" aria-label="Current zoom">100%</span>
+            </div>
+            <div class="canvas-hint" aria-hidden="true">Drag to pan · Scroll to zoom</div>
+            <p class="sr-only" id="tree-help">
+              Filled blue circles represent species classes. Outlined blue circles represent parent groups. Select a
+              node for details. Right and left arrow keys open and close branches. Up and down arrow keys move between
+              visible nodes. Wide branches show 80 children per page; use the selected node panel to change pages.
+              Search covers the complete tree.
+            </p>
+          </div>
+          <aside class="details" id="node-details" aria-label="Selected node details">
+            <p class="panel-label">Selected node</p>
+            <div id="detail-content"></div>
+          </aside>
+        </div>
+        <div class="legend-bar">
+          <div class="legend" aria-label="Tree legend">
+            <span class="legend-item"><i class="legend-circle species" aria-hidden="true"></i>Species class</span
+            ><span class="legend-item"><i class="legend-circle" aria-hidden="true"></i>Parent group</span
+            ><span class="legend-item">+ Closed branch</span>
+          </div>
+          <div id="tree-status" role="status" aria-live="polite"></div>
+        </div>
+      </section>
+      <footer class="footer">
+        <p>Up to 1,200 nodes per view · 80 children per branch page · Search covers every node.</p>
+        <details>
+          <summary>Source files &amp; provenance</summary>
+          <div class="provenance" id="provenance"></div>
+        </details>
+      </footer>
+      <div class="sr-only" id="announcement" role="status" aria-live="polite"></div>
+    </main>
+    <script type="application/json" id="taxonomy-data">
+      __TREE_DATA__
+    </script>
+    <!--
 D3.js ISC license
 Copyright 2010-2023 Mike Bostock
 
@@ -166,394 +840,665 @@ OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 -->
-<script>__D3_SOURCE__</script>
-<script>
-(() => {
-  'use strict';
-  const data = JSON.parse(document.getElementById('taxonomy-data').textContent);
-  const $ = id => document.getElementById(id);
-  const fmt = value => Number(value || 0).toLocaleString('en-US');
-  const element = (tag,attributes={},content) => {
-    const item = document.createElement(tag);
-    Object.entries(attributes).forEach(([key,value]) => item.setAttribute(key,String(value)));
-    if (content !== undefined) item.textContent = String(content);
-    return item;
-  };
-  const norm = value => String(value == null ? '' : value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-  const showValue = value => value === null || value === undefined || value === '' ? 'Not recorded' : String(value);
-  const rankLabel = value => value ? String(value).replace(/_/g,' ') : 'Not recorded';
-  const NODE_LIMIT = 1200;
-  const CHILD_PAGE = 80;
-  const root = d3.hierarchy(data.tree);
-  const allNodes = root.descendants();
-  const isSpecies = node => Number.isInteger(node.data.class_id) && node.fullChildren.length === 0;
-  allNodes.forEach((node,index) => {
-    node.uid = index;
-    node.fullChildren = node.children || [];
-    node.childOffset = 0;
-    node.searchNames = [node.data.name,node.data.common_name].map(norm).filter(Boolean);
-    node.searchText = norm([node.data.name,node.data.common_name,node.data.rank,node.data.id,Number.isInteger(node.data.class_id) ? `class ${node.data.class_id}` : ''].join(' '));
-  });
-  // Compute from the complete hierarchy before any branches are collapsed.
-  root.eachAfter(node => { node.descendantSpecies = isSpecies(node) ? 1 : node.fullChildren.reduce((sum,child) => sum+child.descendantSpecies,0); });
-  let selected = root;
-  let visibleNodes = [];
-  let currentResults = [];
-  let activeResult = -1;
-  let statusNote = '';
-  let width = 1;
-  let height = 1;
-  let initialized = false;
-  const compactQuery = window.matchMedia('(max-width: 700px)');
-  let compactMode = compactQuery.matches;
-  const initialDepth = () => compactMode ? 1 : 2;
-  const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 180;
-  const treeArea = $('tree-area');
-  const svg = d3.select('#tree-svg');
-  const viewport = svg.append('g').attr('class','tree-viewport');
-  const linkLayer = viewport.append('g').attr('aria-hidden','true');
-  const nodeLayer = viewport.append('g').attr('class','tree-nodes');
-  const layout = d3.tree().nodeSize([34,260]).separation((a,b) => a.parent === b.parent ? 1 : 1.18);
-  const linkPath = d3.linkHorizontal().x(d => d.y).y(d => d.x);
-  const zoom = d3.zoom().scaleExtent([.05,2.5]).on('zoom',event => {
-    viewport.attr('transform',event.transform);
-    $('zoom-value').textContent = `${Math.round(event.transform.k*100)}%`;
-  });
-  svg.call(zoom).on('dblclick.zoom',null);
-  $('app-root').dataset.totalNodes = String(allNodes.length);
-  $('page-title').textContent = data.title || 'Explore the iNaturalist taxonomy';
-  document.title = `${data.title || 'iNaturalist taxonomy'} · Explorer`;
-  const summary = data.summary || {};
-  const dataset = element('span');
-  dataset.append(element('strong',{},data.dataset_label || 'iNaturalist'),document.createTextNode('dataset'));
-  $('summary').append(dataset);
-  [[summary.nodes ?? allNodes.length,'nodes'],[summary.classes ?? root.descendantSpecies,'species'],[summary.internal_nodes ?? allNodes.filter(node => node.fullChildren.length).length,'parent groups'],[(summary.ranks || []).length,'ranks']].forEach(([value,label]) => {
-    const item = element('span');
-    item.append(element('strong',{},fmt(value)),document.createTextNode(label));
-    $('summary').append(item);
-  });
-  if (Array.isArray(summary.ranks) && summary.ranks.length) $('summary').append(element('span',{class:'rank-summary'},`Ranks: ${summary.ranks.map(item => `${rankLabel(item.rank)} (${fmt(item.nodes)})`).join(' · ')}`));
-  const provenance = data.provenance || {};
-  (provenance.sources || []).forEach(source => {
-    const paragraph = element('p');
-    paragraph.append(element('strong',{},source.role || 'Source'),element('br'),document.createTextNode(source.name || 'Not recorded'),element('br'),element('code',{},`SHA-256: ${source.sha256 || 'Not recorded'}`));
-    $('provenance').append(paragraph);
-  });
-  (provenance.notes || []).filter(note => typeof note === 'string' && note).forEach(note => $('provenance').append(element('p',{},note)));
-  $('provenance').append(element('p',{},'The complete taxonomy is embedded in this file. Branch paging and the view limit affect only the drawing; search and descendant species counts always use the complete tree.'));
+    <script>
+      __D3_SOURCE__;
+    </script>
+    <script>
+      (() => {
+        "use strict";
+        const data = JSON.parse(document.getElementById("taxonomy-data").textContent);
+        const $ = (id) => document.getElementById(id);
+        const fmt = (value) => Number(value || 0).toLocaleString("en-US");
+        const element = (tag, attributes = {}, content) => {
+          const item = document.createElement(tag);
+          Object.entries(attributes).forEach(([key, value]) => item.setAttribute(key, String(value)));
+          if (content !== undefined) item.textContent = String(content);
+          return item;
+        };
+        const norm = (value) =>
+          String(value == null ? "" : value)
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .trim();
+        const showValue = (value) =>
+          value === null || value === undefined || value === "" ? "Not recorded" : String(value);
+        const rankLabel = (value) => (value ? String(value).replace(/_/g, " ") : "Not recorded");
+        const NODE_LIMIT = 1200;
+        const CHILD_PAGE = 80;
+        const root = d3.hierarchy(data.tree);
+        const allNodes = root.descendants();
+        const isSpecies = (node) => Number.isInteger(node.data.class_id) && node.fullChildren.length === 0;
+        allNodes.forEach((node, index) => {
+          node.uid = index;
+          node.fullChildren = node.children || [];
+          node.childOffset = 0;
+          node.searchNames = [node.data.name, node.data.common_name].map(norm).filter(Boolean);
+          node.searchText = norm(
+            [
+              node.data.name,
+              node.data.common_name,
+              node.data.rank,
+              node.data.id,
+              Number.isInteger(node.data.class_id) ? `class ${node.data.class_id}` : "",
+            ].join(" "),
+          );
+        });
+        // Compute from the complete hierarchy before any branches are collapsed.
+        root.eachAfter((node) => {
+          node.descendantSpecies = isSpecies(node)
+            ? 1
+            : node.fullChildren.reduce((sum, child) => sum + child.descendantSpecies, 0);
+        });
+        let selected = root;
+        let visibleNodes = [];
+        let currentResults = [];
+        let activeResult = -1;
+        let statusNote = "";
+        let width = 1;
+        let height = 1;
+        let initialized = false;
+        const compactQuery = window.matchMedia("(max-width: 700px)");
+        let compactMode = compactQuery.matches;
+        const initialDepth = () => (compactMode ? 1 : 2);
+        const duration = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 180;
+        const treeArea = $("tree-area");
+        const svg = d3.select("#tree-svg");
+        const viewport = svg.append("g").attr("class", "tree-viewport");
+        const linkLayer = viewport.append("g").attr("aria-hidden", "true");
+        const nodeLayer = viewport.append("g").attr("class", "tree-nodes");
+        const layout = d3
+          .tree()
+          .nodeSize([34, 260])
+          .separation((a, b) => (a.parent === b.parent ? 1 : 1.18));
+        const linkPath = d3
+          .linkHorizontal()
+          .x((d) => d.y)
+          .y((d) => d.x);
+        const zoom = d3
+          .zoom()
+          .scaleExtent([0.05, 2.5])
+          .on("zoom", (event) => {
+            viewport.attr("transform", event.transform);
+            $("zoom-value").textContent = `${Math.round(event.transform.k * 100)}%`;
+          });
+        svg.call(zoom).on("dblclick.zoom", null);
+        $("app-root").dataset.totalNodes = String(allNodes.length);
+        $("page-title").textContent = data.title || "Explore the iNaturalist taxonomy";
+        document.title = `${data.title || "iNaturalist taxonomy"} · Explorer`;
+        const summary = data.summary || {};
+        const dataset = element("span");
+        dataset.append(element("strong", {}, data.dataset_label || "iNaturalist"), document.createTextNode("dataset"));
+        $("summary").append(dataset);
+        [
+          [summary.nodes ?? allNodes.length, "nodes"],
+          [summary.classes ?? root.descendantSpecies, "species"],
+          [summary.internal_nodes ?? allNodes.filter((node) => node.fullChildren.length).length, "parent groups"],
+          [(summary.ranks || []).length, "ranks"],
+        ].forEach(([value, label]) => {
+          const item = element("span");
+          item.append(element("strong", {}, fmt(value)), document.createTextNode(label));
+          $("summary").append(item);
+        });
+        if (Array.isArray(summary.ranks) && summary.ranks.length)
+          $("summary").append(
+            element(
+              "span",
+              { class: "rank-summary" },
+              `Ranks: ${summary.ranks.map((item) => `${rankLabel(item.rank)} (${fmt(item.nodes)})`).join(" · ")}`,
+            ),
+          );
+        const provenance = data.provenance || {};
+        (provenance.sources || []).forEach((source) => {
+          const paragraph = element("p");
+          paragraph.append(
+            element("strong", {}, source.role || "Source"),
+            element("br"),
+            document.createTextNode(source.name || "Not recorded"),
+            element("br"),
+            element("code", {}, `SHA-256: ${source.sha256 || "Not recorded"}`),
+          );
+          $("provenance").append(paragraph);
+        });
+        (provenance.notes || [])
+          .filter((note) => typeof note === "string" && note)
+          .forEach((note) => $("provenance").append(element("p", {}, note)));
+        $("provenance").append(
+          element(
+            "p",
+            {},
+            "The complete taxonomy is embedded in this file. Branch paging and the view limit affect only the drawing; search and descendant species counts always use the complete tree.",
+          ),
+        );
 
-  const childrenPage = node => node.fullChildren.slice(node.childOffset,node.childOffset+CHILD_PAGE);
-  const visibleCount = () => root.descendants().length;
-  function closeAll() { allNodes.forEach(node => { node.children = null; node.childOffset = 0; }); }
-  function openNode(node) {
-    if (!node.fullChildren.length || node.children) return true;
-    const children = childrenPage(node);
-    // Closed subtrees may remember expanded descendants. Close those before opening
-    // one level so every expansion is bounded and predictable.
-    const hidden = [...children];
-    while (hidden.length) { const child = hidden.pop(); child.children = null; hidden.push(...child.fullChildren); }
-    if (visibleCount()+children.length > NODE_LIMIT) return false;
-    node.children = children;
-    return true;
-  }
-  function expandLevel(branch) {
-    const candidates = branch.descendants().filter(node => node.fullChildren.length && !node.children);
-    if (!candidates.length) { statusNote = 'This branch has no further closed levels.'; return; }
-    const nextDepth = Math.min(...candidates.map(node => node.depth));
-    let opened = 0;
-    let limited = false;
-    for (const node of candidates.filter(node => node.depth === nextDepth)) {
-      if (!openNode(node)) { limited = true; continue; }
-      opened++;
-    }
-    statusNote = `${fmt(opened)} ${opened === 1 ? 'branch opened' : 'branches opened'} one level${limited ? `; ${fmt(NODE_LIMIT)}-node limit reached. Collapse a branch to open more.` : '.'}`;
-  }
-  function resetBranches() {
-    closeAll();
-    for (let depth=0; depth<initialDepth(); depth++) {
-      const frontier = root.descendants().filter(node => node.depth === depth);
-      frontier.forEach(node => openNode(node));
-    }
-    statusNote = 'Start with broad groups; open one level at a time.';
-  }
-  function revealPath(node) {
-    const ancestors = node.ancestors().reverse();
-    // Search must always reveal its result, even when the current view is full.
-    closeAll();
-    ancestors.slice(0,-1).forEach((parent,index) => {
-      const child = ancestors[index+1];
-      parent.childOffset = Math.floor(parent.fullChildren.indexOf(child)/CHILD_PAGE)*CHILD_PAGE;
-      if (!openNode(parent)) {
-        // Extremely deep custom trees still reveal their path within the cap.
-        parent.children = [child];
-      }
-    });
-    statusNote = 'Focused path revealed; other branches collapsed. Wide branches show the page containing this node.';
-  }
-  function shortName(node) {
-    const name = String(node.data.name || 'Unnamed node');
-    const limit = compactMode ? 24 : 32;
-    return name.length > limit ? name.slice(0,limit-1)+'…' : name;
-  }
-  function labelWidth(node) { return Math.max(35,node.labelTextWidth || shortName(node).length*6.65); }
-  function nodeAria(node) {
-    const branch = node.fullChildren.length ? (node.children ? `, expanded, ${node.children.length} of ${node.fullChildren.length} direct children shown` : ', collapsed') : ', leaf';
-    return `${node.data.name}, ${rankLabel(node.data.rank)}, ${isSpecies(node) ? `species class ${node.data.class_id}` : 'parent group'}${branch}`;
-  }
-  function draw() {
-    layout.nodeSize([34,compactMode ? 210 : 260]);
-    layout(root);
-    visibleNodes = [];
-    root.eachBefore(node => visibleNodes.push(node));
-    linkLayer.selectAll('path').data(root.links(),item => item.target.uid).join('path').attr('class','tree-link').attr('d',linkPath);
-    const nodes = nodeLayer.selectAll('g.tree-node').data(visibleNodes,node => node.uid).join(enter => {
-      const group = enter.append('g').attr('class','tree-node').attr('role','treeitem');
-      group.append('rect').attr('class','node-halo').attr('x',-12).attr('y',-13).attr('height',26).attr('rx',5);
-      group.append('circle').attr('class','node-dot');
-      group.append('text').attr('class','branch-mark').attr('dy','0.32em');
-      group.append('text').attr('class','node-label').attr('x',13).attr('dy','0.34em');
-      group.append('title');
-      return group;
-    });
-    nodes.attr('id',node => `tree-node-${node.uid}`).attr('transform',node => `translate(${node.y},${node.x})`)
-      .attr('class',node => `tree-node${isSpecies(node) ? ' species' : ''}${node === selected ? ' selected' : ''}${node.fullChildren.length && !node.children ? ' collapsed' : ''}`)
-      .attr('tabindex',node => node === selected ? 0 : -1).attr('aria-selected',node => String(node === selected))
-      .attr('aria-level',node => node.depth+1).attr('aria-expanded',node => node.fullChildren.length ? String(Boolean(node.children)) : null)
-      .attr('aria-setsize',node => node.parent ? node.parent.fullChildren.length : 1).attr('aria-posinset',node => node.parent ? node.parent.fullChildren.indexOf(node)+1 : 1)
-      .attr('aria-label',nodeAria).attr('data-node-id',node => node.data.id).attr('data-species',node => String(isSpecies(node)))
-      .on('click',(event,node) => { event.stopPropagation(); activate(node); })
-      .on('keydown',onNodeKey).on('focus',(event,node) => { if (selected !== node) select(node,false); });
-    nodes.select('.node-dot').attr('r',node => isSpecies(node) ? 5.5 : 4.5);
-    nodes.select('.branch-mark').text(node => node.fullChildren.length && !node.children ? '+' : '');
-    nodes.select('.node-label').text(shortName).each(function(node) {
-      const budget = compactMode ? 168 : 218;
-      let label = this.textContent;
-      while (this.getComputedTextLength() > budget && label.length > 2) {
-        label = label.replace(/…$/,'').slice(0,-1)+'…';
-        this.textContent = label;
-      }
-      node.labelTextWidth = this.getComputedTextLength();
-    });
-    nodes.select('.node-halo').attr('width',node => labelWidth(node)+29);
-    nodes.select('title').text(node => `${node.data.name}\n${rankLabel(node.data.rank)}${node.data.common_name ? `\n${node.data.common_name}` : ''}${isSpecies(node) ? `\nClass ID ${node.data.class_id}` : `\n${fmt(node.descendantSpecies)} descendant species`}`);
-    const paged = visibleNodes.filter(node => node.children && node.children.length < node.fullChildren.length).length;
-    $('tree-status').textContent = `Showing ${fmt(visibleNodes.length)} of ${fmt(allNodes.length)} nodes${paged ? ` · ${fmt(paged)} paged ${paged === 1 ? 'branch' : 'branches'}` : ''}. ${statusNote}`;
-    $('app-root').dataset.visibleNodes = String(visibleNodes.length);
-    renderDetails(selected);
-  }
-  function updateSelection() {
-    nodeLayer.selectAll('g.tree-node').classed('selected',node => node === selected).attr('tabindex',node => node === selected ? 0 : -1).attr('aria-selected',node => String(node === selected));
-  }
-  function select(node,announce=true) {
-    selected = node;
-    updateSelection();
-    renderDetails(node);
-    $('app-root').dataset.selectedNode = String(node.data.id);
-    if (announce) $('announcement').textContent = `Selected ${node.data.name}. ${fmt(node.descendantSpecies)} descendant species.`;
-  }
-  function activate(node) {
-    statusNote = '';
-    if (node.fullChildren.length) {
-      if (node.children) node.children = null;
-      else if (!openNode(node)) statusNote = `${fmt(NODE_LIMIT)}-node view limit. Collapse a branch, or search for a node to reveal its path.`;
-    }
-    select(node);
-    draw();
-    focusElement(node);
-  }
-  function focusElement(node) {
-    const item = $(`tree-node-${node.uid}`);
-    if (item) item.focus({preventScroll:true});
-  }
-  function camera(transform,animate=true) {
-    svg.interrupt();
-    if (animate && duration) svg.transition().duration(duration).call(zoom.transform,transform);
-    else svg.call(zoom.transform,transform);
-  }
-  function centerNode(node,animate=true) {
-    const k = Math.max(.85,Math.min(1.25,d3.zoomTransform(svg.node()).k));
-    camera(d3.zoomIdentity.translate(width*.25-node.y*k,height*.48-node.x*k).scale(k),animate);
-  }
-  function fitView(initial=false,animate=true) {
-    if (!visibleNodes.length || width < 1 || height < 1) return;
-    const x0 = d3.min(visibleNodes,node => node.x)-24;
-    const x1 = d3.max(visibleNodes,node => node.x)+24;
-    const y0 = -20;
-    const y1 = d3.max(visibleNodes,node => node.y+labelWidth(node)+30);
-    let k = Math.min(1,(width-58)/(y1-y0),(height-65)/(x1-x0));
-    k = Math.max(initial ? (compactMode ? .82 : .72) : .05,k);
-    const tx = (width-(y1-y0)*k)/2-y0*k;
-    const ty = (height-(x1-x0)*k)/2-x0*k;
-    camera(d3.zoomIdentity.translate(Math.max(30,tx),ty).scale(k),animate);
-  }
-  function jumpTo(node) {
-    revealPath(node);
-    select(node);
-    draw();
-    centerNode(node);
-    focusElement(node);
-  }
-  function onNodeKey(event,node) {
-    let target = null;
-    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); activate(node); return; }
-    if (event.key === 'ArrowRight') {
-      event.preventDefault();
-      if (node.fullChildren.length && !node.children) { activate(node); return; }
-      if (node.children) target = node.children[0];
-    } else if (event.key === 'ArrowLeft') {
-      event.preventDefault();
-      if (node.children) { activate(node); return; }
-      target = node.parent;
-    } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      target = visibleNodes[visibleNodes.indexOf(node)+(event.key === 'ArrowDown' ? 1 : -1)];
-    } else if (event.key === 'Home') { event.preventDefault(); target = root; }
-    else if (event.key === 'End') { event.preventDefault(); target = visibleNodes[visibleNodes.length-1]; }
-    if (target) { select(target); centerNode(target); focusElement(target); }
-  }
-  function pageBranch(node,direction) {
-    const offset = node.childOffset+direction*CHILD_PAGE;
-    if (offset < 0 || offset >= node.fullChildren.length) return;
-    const oldOffset = node.childOffset;
-    const oldChildren = node.children;
-    node.childOffset = offset;
-    node.children = null;
-    if (!openNode(node)) { node.childOffset = oldOffset; node.children = oldChildren; statusNote = `${fmt(NODE_LIMIT)}-node limit reached; collapse another branch before changing this page.`; }
-    else statusNote = `Showing direct children ${fmt(offset+1)}–${fmt(Math.min(offset+CHILD_PAGE,node.fullChildren.length))} of ${fmt(node.fullChildren.length)} for ${node.data.name}.`;
-    draw();
-    centerNode(node);
-  }
-  function renderDetails(node) {
-    const content = $('detail-content');
-    content.replaceChildren(element('h2',{},node.data.name));
-    const badges = element('div',{class:'badges'});
-    badges.append(element('span',{class:'badge'},isSpecies(node) ? 'Species class' : 'Parent group'));
-    const rows = [['Rank',rankLabel(node.data.rank)],['Class ID',Number.isInteger(node.data.class_id) ? String(node.data.class_id) : 'Not applicable'],['Common name',showValue(node.data.common_name)],['Node ID',showValue(node.data.id)],['Direct children',fmt(node.fullChildren.length)],['Descendant species',fmt(node.descendantSpecies)]];
-    const details = element('dl',{class:'detail-list'});
-    rows.forEach(([key,value]) => { const row = element('div'); row.append(element('dt',{},key),element('dd',{},value)); details.append(row); });
-    content.append(badges,details);
-    if (isSpecies(node)) content.append(element('p',{class:'detail-empty'},'The species count includes this species itself.'));
-    if (node.fullChildren.length) {
-      const branch = element('section',{class:'detail-section'});
-      branch.append(element('h3',{},'Explore this branch'));
-      const expand = element('button',{class:'tool-button',id:'expand-selected',type:'button'},'Next branch level');
-      expand.addEventListener('click',() => { expandLevel(node); draw(); centerNode(node); });
-      branch.append(expand);
-      if (node.fullChildren.length > CHILD_PAGE) {
-        const pager = element('div',{class:'branch-page'});
-        pager.append(element('p',{},node.children ? `Direct children ${fmt(node.childOffset+1)}–${fmt(Math.min(node.childOffset+CHILD_PAGE,node.fullChildren.length))} of ${fmt(node.fullChildren.length)}. Other children remain searchable.` : `${fmt(node.fullChildren.length)} direct children, shown ${CHILD_PAGE} per page when opened.`));
-        const previous = element('button',{class:'tool-button',type:'button','aria-label':'Previous page of direct children'},'Previous 80');
-        const next = element('button',{class:'tool-button',type:'button','aria-label':'Next page of direct children'},'Next 80');
-        previous.disabled = !node.children || node.childOffset === 0;
-        next.disabled = !node.children || node.childOffset+CHILD_PAGE >= node.fullChildren.length;
-        previous.addEventListener('click',() => pageBranch(node,-1));
-        next.addEventListener('click',() => pageBranch(node,1));
-        pager.append(previous,next);
-        branch.append(pager);
-      }
-      content.append(branch);
-    }
-    const pathSection = element('section',{class:'detail-section'});
-    pathSection.append(element('h3',{},'Taxonomic path'));
-    const path = element('nav',{class:'breadcrumb','aria-label':'Taxonomic path'});
-    node.ancestors().reverse().forEach((ancestor,index) => {
-      if (index) path.append(element('span',{'aria-hidden':'true'},'›'));
-      const button = element('button',{type:'button','data-path-uid':ancestor.uid},ancestor.data.name);
-      if (ancestor === node) button.setAttribute('aria-current','location');
-      button.addEventListener('click',() => jumpTo(ancestor));
-      path.append(button);
-    });
-    pathSection.append(path);
-    content.append(pathSection);
-  }
-  function hideResults() {
-    $('search-panel').hidden = true;
-    $('search').setAttribute('aria-expanded','false');
-    $('search').removeAttribute('aria-activedescendant');
-    activeResult = -1;
-  }
-  function search() {
-    const query = norm($('search').value);
-    $('clear-search').hidden = !query;
-    if (!query) { currentResults = []; hideResults(); return; }
-    const matches = allNodes.filter(node => node.searchText.includes(query)).sort((a,b) => {
-      const score = node => norm(node.data.id) === query || (Number.isInteger(node.data.class_id) && String(node.data.class_id) === query) || node.searchNames.some(name => name === query) ? 0 : node.searchNames.some(name => name.startsWith(query)) ? 1 : 2;
-      return score(a)-score(b) || String(a.data.name).localeCompare(String(b.data.name),'en');
-    });
-    currentResults = matches.slice(0,16);
-    activeResult = -1;
-    $('search-note').textContent = matches.length ? `${fmt(matches.length)} matching ${matches.length === 1 ? 'node' : 'nodes'} across the complete tree${matches.length > 16 ? ' · First 16 shown; refine your search' : ''}` : 'No matching nodes. Try a shorter name, rank, or ID.';
-    $('search-results').replaceChildren();
-    currentResults.forEach((node,index) => {
-      const parentPath = node.ancestors().slice(1,3).reverse().map(ancestor => ancestor.data.name).join(' › ');
-      const subtitle = [rankLabel(node.data.rank),node.data.common_name,parentPath ? `Under ${parentPath}` : null,Number.isInteger(node.data.class_id) ? `Class ID ${node.data.class_id}` : null,`Node ${node.data.id}`].filter(value => value !== null && value !== undefined && value !== '').join(' · ');
-      const item = element('li',{role:'presentation'});
-      const button = element('button',{class:'search-result',id:`search-result-${index}`,role:'option','aria-selected':'false','data-result':index,tabindex:'-1'});
-      button.append(element('strong',{},node.data.name),element('small',{},subtitle));
-      button.addEventListener('click',() => chooseResult(index));
-      item.append(button);
-      $('search-results').append(item);
-    });
-    $('search-panel').hidden = false;
-    $('search').setAttribute('aria-expanded','true');
-    $('search').removeAttribute('aria-activedescendant');
-  }
-  function chooseResult(index) {
-    const node = currentResults[index];
-    if (!node) return;
-    $('search').value = node.data.name;
-    $('clear-search').hidden = false;
-    hideResults();
-    jumpTo(node);
-  }
-  function setActiveResult(index) {
-    if (!currentResults.length) return;
-    activeResult = (index+currentResults.length)%currentResults.length;
-    $('search-results').querySelectorAll('[data-result]').forEach((button,i) => button.setAttribute('aria-selected',String(i === activeResult)));
-    const item = $(`search-result-${activeResult}`);
-    $('search').setAttribute('aria-activedescendant',item.id);
-    item.scrollIntoView({block:'nearest'});
-  }
-  $('search').addEventListener('input',search);
-  $('search').addEventListener('focus',() => { if ($('search').value.trim()) search(); });
-  $('search').addEventListener('keydown',event => {
-    if (event.key === 'Escape') { hideResults(); return; }
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      if ($('search-panel').hidden) search();
-      if ($('search-panel').hidden) return;
-      setActiveResult(activeResult === -1 && event.key === 'ArrowUp' ? currentResults.length-1 : activeResult+(event.key === 'ArrowDown' ? 1 : -1));
-    } else if (event.key === 'Enter' && !$('search-panel').hidden && currentResults.length) { event.preventDefault(); chooseResult(Math.max(0,activeResult)); }
-  });
-  $('clear-search').addEventListener('click',() => { $('search').value = ''; $('clear-search').hidden = true; hideResults(); $('search').focus(); });
-  document.addEventListener('click',event => { if (!$('search-wrap').contains(event.target)) hideResults(); });
-  $('expand-level').addEventListener('click',() => { expandLevel(root); draw(); centerNode(selected); });
-  $('collapse-all').addEventListener('click',() => { closeAll(); statusNote = 'All branches collapsed.'; select(root); draw(); centerNode(root); });
-  $('fit-view').addEventListener('click',() => fitView());
-  $('reset-view').addEventListener('click',() => { resetBranches(); select(root); draw(); $('search').value = ''; $('clear-search').hidden = true; hideResults(); fitView(true); $('announcement').textContent = 'View reset to broad groups.'; });
-  $('zoom-in').addEventListener('click',() => svg.transition().duration(duration).call(zoom.scaleBy,1.3));
-  $('zoom-out').addEventListener('click',() => svg.transition().duration(duration).call(zoom.scaleBy,1/1.3));
-  function resize() {
-    const bounds = treeArea.getBoundingClientRect();
-    const widthChanged = Math.abs(bounds.width-width) > 1;
-    const modeChanged = compactMode !== compactQuery.matches;
-    compactMode = compactQuery.matches;
-    width = bounds.width; height = bounds.height;
-    svg.attr('viewBox',`0 0 ${width} ${height}`);
-    if (modeChanged) { draw(); }
-    if (!initialized || widthChanged || modeChanged) {
-      initialized = true;
-      if (selected !== root && modeChanged) centerNode(selected,false);
-      else fitView(true,false);
-    }
-  }
-  resetBranches();
-  draw();
-  select(root,false);
-  resize();
-  if ('ResizeObserver' in window) new ResizeObserver(resize).observe(treeArea);
-  else window.addEventListener('resize',resize);
-})();
-</script>
-</body>
+        const childrenPage = (node) => node.fullChildren.slice(node.childOffset, node.childOffset + CHILD_PAGE);
+        const visibleCount = () => root.descendants().length;
+        function closeAll() {
+          allNodes.forEach((node) => {
+            node.children = null;
+            node.childOffset = 0;
+          });
+        }
+        function openNode(node) {
+          if (!node.fullChildren.length || node.children) return true;
+          const children = childrenPage(node);
+          // Closed subtrees may remember expanded descendants. Close those before opening
+          // one level so every expansion is bounded and predictable.
+          const hidden = [...children];
+          while (hidden.length) {
+            const child = hidden.pop();
+            child.children = null;
+            hidden.push(...child.fullChildren);
+          }
+          if (visibleCount() + children.length > NODE_LIMIT) return false;
+          node.children = children;
+          return true;
+        }
+        function expandLevel(branch) {
+          const candidates = branch.descendants().filter((node) => node.fullChildren.length && !node.children);
+          if (!candidates.length) {
+            statusNote = "This branch has no further closed levels.";
+            return;
+          }
+          const nextDepth = Math.min(...candidates.map((node) => node.depth));
+          let opened = 0;
+          let limited = false;
+          for (const node of candidates.filter((node) => node.depth === nextDepth)) {
+            if (!openNode(node)) {
+              limited = true;
+              continue;
+            }
+            opened++;
+          }
+          statusNote = `${fmt(opened)} ${opened === 1 ? "branch opened" : "branches opened"} one level${limited ? `; ${fmt(NODE_LIMIT)}-node limit reached. Collapse a branch to open more.` : "."}`;
+        }
+        function resetBranches() {
+          closeAll();
+          for (let depth = 0; depth < initialDepth(); depth++) {
+            const frontier = root.descendants().filter((node) => node.depth === depth);
+            frontier.forEach((node) => openNode(node));
+          }
+          statusNote = "Start with broad groups; open one level at a time.";
+        }
+        function revealPath(node) {
+          const ancestors = node.ancestors().reverse();
+          // Search must always reveal its result, even when the current view is full.
+          closeAll();
+          ancestors.slice(0, -1).forEach((parent, index) => {
+            const child = ancestors[index + 1];
+            parent.childOffset = Math.floor(parent.fullChildren.indexOf(child) / CHILD_PAGE) * CHILD_PAGE;
+            if (!openNode(parent)) {
+              // Extremely deep custom trees still reveal their path within the cap.
+              parent.children = [child];
+            }
+          });
+          statusNote =
+            "Focused path revealed; other branches collapsed. Wide branches show the page containing this node.";
+        }
+        function shortName(node) {
+          const name = String(node.data.name || "Unnamed node");
+          const limit = compactMode ? 24 : 32;
+          return name.length > limit ? name.slice(0, limit - 1) + "…" : name;
+        }
+        function labelWidth(node) {
+          return Math.max(35, node.labelTextWidth || shortName(node).length * 6.65);
+        }
+        function nodeAria(node) {
+          const branch = node.fullChildren.length
+            ? node.children
+              ? `, expanded, ${node.children.length} of ${node.fullChildren.length} direct children shown`
+              : ", collapsed"
+            : ", leaf";
+          return `${node.data.name}, ${rankLabel(node.data.rank)}, ${isSpecies(node) ? `species class ${node.data.class_id}` : "parent group"}${branch}`;
+        }
+        function draw() {
+          layout.nodeSize([34, compactMode ? 210 : 260]);
+          layout(root);
+          visibleNodes = [];
+          root.eachBefore((node) => visibleNodes.push(node));
+          linkLayer
+            .selectAll("path")
+            .data(root.links(), (item) => item.target.uid)
+            .join("path")
+            .attr("class", "tree-link")
+            .attr("d", linkPath);
+          const nodes = nodeLayer
+            .selectAll("g.tree-node")
+            .data(visibleNodes, (node) => node.uid)
+            .join((enter) => {
+              const group = enter.append("g").attr("class", "tree-node").attr("role", "treeitem");
+              group
+                .append("rect")
+                .attr("class", "node-halo")
+                .attr("x", -12)
+                .attr("y", -13)
+                .attr("height", 26)
+                .attr("rx", 5);
+              group.append("circle").attr("class", "node-dot");
+              group.append("text").attr("class", "branch-mark").attr("dy", "0.32em");
+              group.append("text").attr("class", "node-label").attr("x", 13).attr("dy", "0.34em");
+              group.append("title");
+              return group;
+            });
+          nodes
+            .attr("id", (node) => `tree-node-${node.uid}`)
+            .attr("transform", (node) => `translate(${node.y},${node.x})`)
+            .attr(
+              "class",
+              (node) =>
+                `tree-node${isSpecies(node) ? " species" : ""}${node === selected ? " selected" : ""}${node.fullChildren.length && !node.children ? " collapsed" : ""}`,
+            )
+            .attr("tabindex", (node) => (node === selected ? 0 : -1))
+            .attr("aria-selected", (node) => String(node === selected))
+            .attr("aria-level", (node) => node.depth + 1)
+            .attr("aria-expanded", (node) => (node.fullChildren.length ? String(Boolean(node.children)) : null))
+            .attr("aria-setsize", (node) => (node.parent ? node.parent.fullChildren.length : 1))
+            .attr("aria-posinset", (node) => (node.parent ? node.parent.fullChildren.indexOf(node) + 1 : 1))
+            .attr("aria-label", nodeAria)
+            .attr("data-node-id", (node) => node.data.id)
+            .attr("data-species", (node) => String(isSpecies(node)))
+            .on("click", (event, node) => {
+              event.stopPropagation();
+              activate(node);
+            })
+            .on("keydown", onNodeKey)
+            .on("focus", (event, node) => {
+              if (selected !== node) select(node, false);
+            });
+          nodes.select(".node-dot").attr("r", (node) => (isSpecies(node) ? 5.5 : 4.5));
+          nodes.select(".branch-mark").text((node) => (node.fullChildren.length && !node.children ? "+" : ""));
+          nodes
+            .select(".node-label")
+            .text(shortName)
+            .each(function (node) {
+              const budget = compactMode ? 168 : 218;
+              let label = this.textContent;
+              while (this.getComputedTextLength() > budget && label.length > 2) {
+                label = label.replace(/…$/, "").slice(0, -1) + "…";
+                this.textContent = label;
+              }
+              node.labelTextWidth = this.getComputedTextLength();
+            });
+          nodes.select(".node-halo").attr("width", (node) => labelWidth(node) + 29);
+          nodes
+            .select("title")
+            .text(
+              (node) =>
+                `${node.data.name}\n${rankLabel(node.data.rank)}${node.data.common_name ? `\n${node.data.common_name}` : ""}${isSpecies(node) ? `\nClass ID ${node.data.class_id}` : `\n${fmt(node.descendantSpecies)} descendant species`}`,
+            );
+          const paged = visibleNodes.filter(
+            (node) => node.children && node.children.length < node.fullChildren.length,
+          ).length;
+          $("tree-status").textContent =
+            `Showing ${fmt(visibleNodes.length)} of ${fmt(allNodes.length)} nodes${paged ? ` · ${fmt(paged)} paged ${paged === 1 ? "branch" : "branches"}` : ""}. ${statusNote}`;
+          $("app-root").dataset.visibleNodes = String(visibleNodes.length);
+          renderDetails(selected);
+        }
+        function updateSelection() {
+          nodeLayer
+            .selectAll("g.tree-node")
+            .classed("selected", (node) => node === selected)
+            .attr("tabindex", (node) => (node === selected ? 0 : -1))
+            .attr("aria-selected", (node) => String(node === selected));
+        }
+        function select(node, announce = true) {
+          selected = node;
+          updateSelection();
+          renderDetails(node);
+          $("app-root").dataset.selectedNode = String(node.data.id);
+          if (announce)
+            $("announcement").textContent =
+              `Selected ${node.data.name}. ${fmt(node.descendantSpecies)} descendant species.`;
+        }
+        function activate(node) {
+          statusNote = "";
+          if (node.fullChildren.length) {
+            if (node.children) node.children = null;
+            else if (!openNode(node))
+              statusNote = `${fmt(NODE_LIMIT)}-node view limit. Collapse a branch, or search for a node to reveal its path.`;
+          }
+          select(node);
+          draw();
+          focusElement(node);
+        }
+        function focusElement(node) {
+          const item = $(`tree-node-${node.uid}`);
+          if (item) item.focus({ preventScroll: true });
+        }
+        function camera(transform, animate = true) {
+          svg.interrupt();
+          if (animate && duration) svg.transition().duration(duration).call(zoom.transform, transform);
+          else svg.call(zoom.transform, transform);
+        }
+        function centerNode(node, animate = true) {
+          const k = Math.max(0.85, Math.min(1.25, d3.zoomTransform(svg.node()).k));
+          camera(d3.zoomIdentity.translate(width * 0.25 - node.y * k, height * 0.48 - node.x * k).scale(k), animate);
+        }
+        function fitView(initial = false, animate = true) {
+          if (!visibleNodes.length || width < 1 || height < 1) return;
+          const x0 = d3.min(visibleNodes, (node) => node.x) - 24;
+          const x1 = d3.max(visibleNodes, (node) => node.x) + 24;
+          const y0 = -20;
+          const y1 = d3.max(visibleNodes, (node) => node.y + labelWidth(node) + 30);
+          let k = Math.min(1, (width - 58) / (y1 - y0), (height - 65) / (x1 - x0));
+          k = Math.max(initial ? (compactMode ? 0.82 : 0.72) : 0.05, k);
+          const tx = (width - (y1 - y0) * k) / 2 - y0 * k;
+          const ty = (height - (x1 - x0) * k) / 2 - x0 * k;
+          camera(d3.zoomIdentity.translate(Math.max(30, tx), ty).scale(k), animate);
+        }
+        function jumpTo(node) {
+          revealPath(node);
+          select(node);
+          draw();
+          centerNode(node);
+          focusElement(node);
+        }
+        function onNodeKey(event, node) {
+          let target = null;
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            activate(node);
+            return;
+          }
+          if (event.key === "ArrowRight") {
+            event.preventDefault();
+            if (node.fullChildren.length && !node.children) {
+              activate(node);
+              return;
+            }
+            if (node.children) target = node.children[0];
+          } else if (event.key === "ArrowLeft") {
+            event.preventDefault();
+            if (node.children) {
+              activate(node);
+              return;
+            }
+            target = node.parent;
+          } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            target = visibleNodes[visibleNodes.indexOf(node) + (event.key === "ArrowDown" ? 1 : -1)];
+          } else if (event.key === "Home") {
+            event.preventDefault();
+            target = root;
+          } else if (event.key === "End") {
+            event.preventDefault();
+            target = visibleNodes[visibleNodes.length - 1];
+          }
+          if (target) {
+            select(target);
+            centerNode(target);
+            focusElement(target);
+          }
+        }
+        function pageBranch(node, direction) {
+          const offset = node.childOffset + direction * CHILD_PAGE;
+          if (offset < 0 || offset >= node.fullChildren.length) return;
+          const oldOffset = node.childOffset;
+          const oldChildren = node.children;
+          node.childOffset = offset;
+          node.children = null;
+          if (!openNode(node)) {
+            node.childOffset = oldOffset;
+            node.children = oldChildren;
+            statusNote = `${fmt(NODE_LIMIT)}-node limit reached; collapse another branch before changing this page.`;
+          } else
+            statusNote = `Showing direct children ${fmt(offset + 1)}–${fmt(Math.min(offset + CHILD_PAGE, node.fullChildren.length))} of ${fmt(node.fullChildren.length)} for ${node.data.name}.`;
+          draw();
+          centerNode(node);
+        }
+        function renderDetails(node) {
+          const content = $("detail-content");
+          content.replaceChildren(element("h2", {}, node.data.name));
+          const badges = element("div", { class: "badges" });
+          badges.append(element("span", { class: "badge" }, isSpecies(node) ? "Species class" : "Parent group"));
+          const rows = [
+            ["Rank", rankLabel(node.data.rank)],
+            ["Class ID", Number.isInteger(node.data.class_id) ? String(node.data.class_id) : "Not applicable"],
+            ["Common name", showValue(node.data.common_name)],
+            ["Node ID", showValue(node.data.id)],
+            ["Direct children", fmt(node.fullChildren.length)],
+            ["Descendant species", fmt(node.descendantSpecies)],
+          ];
+          const details = element("dl", { class: "detail-list" });
+          rows.forEach(([key, value]) => {
+            const row = element("div");
+            row.append(element("dt", {}, key), element("dd", {}, value));
+            details.append(row);
+          });
+          content.append(badges, details);
+          if (isSpecies(node))
+            content.append(element("p", { class: "detail-empty" }, "The species count includes this species itself."));
+          if (node.fullChildren.length) {
+            const branch = element("section", { class: "detail-section" });
+            branch.append(element("h3", {}, "Explore this branch"));
+            const expand = element(
+              "button",
+              { class: "tool-button", id: "expand-selected", type: "button" },
+              "Next branch level",
+            );
+            expand.addEventListener("click", () => {
+              expandLevel(node);
+              draw();
+              centerNode(node);
+            });
+            branch.append(expand);
+            if (node.fullChildren.length > CHILD_PAGE) {
+              const pager = element("div", { class: "branch-page" });
+              pager.append(
+                element(
+                  "p",
+                  {},
+                  node.children
+                    ? `Direct children ${fmt(node.childOffset + 1)}–${fmt(Math.min(node.childOffset + CHILD_PAGE, node.fullChildren.length))} of ${fmt(node.fullChildren.length)}. Other children remain searchable.`
+                    : `${fmt(node.fullChildren.length)} direct children, shown ${CHILD_PAGE} per page when opened.`,
+                ),
+              );
+              const previous = element(
+                "button",
+                { class: "tool-button", type: "button", "aria-label": "Previous page of direct children" },
+                "Previous 80",
+              );
+              const next = element(
+                "button",
+                { class: "tool-button", type: "button", "aria-label": "Next page of direct children" },
+                "Next 80",
+              );
+              previous.disabled = !node.children || node.childOffset === 0;
+              next.disabled = !node.children || node.childOffset + CHILD_PAGE >= node.fullChildren.length;
+              previous.addEventListener("click", () => pageBranch(node, -1));
+              next.addEventListener("click", () => pageBranch(node, 1));
+              pager.append(previous, next);
+              branch.append(pager);
+            }
+            content.append(branch);
+          }
+          const pathSection = element("section", { class: "detail-section" });
+          pathSection.append(element("h3", {}, "Taxonomic path"));
+          const path = element("nav", { class: "breadcrumb", "aria-label": "Taxonomic path" });
+          node
+            .ancestors()
+            .reverse()
+            .forEach((ancestor, index) => {
+              if (index) path.append(element("span", { "aria-hidden": "true" }, "›"));
+              const button = element("button", { type: "button", "data-path-uid": ancestor.uid }, ancestor.data.name);
+              if (ancestor === node) button.setAttribute("aria-current", "location");
+              button.addEventListener("click", () => jumpTo(ancestor));
+              path.append(button);
+            });
+          pathSection.append(path);
+          content.append(pathSection);
+        }
+        function hideResults() {
+          $("search-panel").hidden = true;
+          $("search").setAttribute("aria-expanded", "false");
+          $("search").removeAttribute("aria-activedescendant");
+          activeResult = -1;
+        }
+        function search() {
+          const query = norm($("search").value);
+          $("clear-search").hidden = !query;
+          if (!query) {
+            currentResults = [];
+            hideResults();
+            return;
+          }
+          const matches = allNodes
+            .filter((node) => node.searchText.includes(query))
+            .sort((a, b) => {
+              const score = (node) =>
+                norm(node.data.id) === query ||
+                (Number.isInteger(node.data.class_id) && String(node.data.class_id) === query) ||
+                node.searchNames.some((name) => name === query)
+                  ? 0
+                  : node.searchNames.some((name) => name.startsWith(query))
+                    ? 1
+                    : 2;
+              return score(a) - score(b) || String(a.data.name).localeCompare(String(b.data.name), "en");
+            });
+          currentResults = matches.slice(0, 16);
+          activeResult = -1;
+          $("search-note").textContent = matches.length
+            ? `${fmt(matches.length)} matching ${matches.length === 1 ? "node" : "nodes"} across the complete tree${matches.length > 16 ? " · First 16 shown; refine your search" : ""}`
+            : "No matching nodes. Try a shorter name, rank, or ID.";
+          $("search-results").replaceChildren();
+          currentResults.forEach((node, index) => {
+            const parentPath = node
+              .ancestors()
+              .slice(1, 3)
+              .reverse()
+              .map((ancestor) => ancestor.data.name)
+              .join(" › ");
+            const subtitle = [
+              rankLabel(node.data.rank),
+              node.data.common_name,
+              parentPath ? `Under ${parentPath}` : null,
+              Number.isInteger(node.data.class_id) ? `Class ID ${node.data.class_id}` : null,
+              `Node ${node.data.id}`,
+            ]
+              .filter((value) => value !== null && value !== undefined && value !== "")
+              .join(" · ");
+            const item = element("li", { role: "presentation" });
+            const button = element("button", {
+              class: "search-result",
+              id: `search-result-${index}`,
+              role: "option",
+              "aria-selected": "false",
+              "data-result": index,
+              tabindex: "-1",
+            });
+            button.append(element("strong", {}, node.data.name), element("small", {}, subtitle));
+            button.addEventListener("click", () => chooseResult(index));
+            item.append(button);
+            $("search-results").append(item);
+          });
+          $("search-panel").hidden = false;
+          $("search").setAttribute("aria-expanded", "true");
+          $("search").removeAttribute("aria-activedescendant");
+        }
+        function chooseResult(index) {
+          const node = currentResults[index];
+          if (!node) return;
+          $("search").value = node.data.name;
+          $("clear-search").hidden = false;
+          hideResults();
+          jumpTo(node);
+        }
+        function setActiveResult(index) {
+          if (!currentResults.length) return;
+          activeResult = (index + currentResults.length) % currentResults.length;
+          $("search-results")
+            .querySelectorAll("[data-result]")
+            .forEach((button, i) => button.setAttribute("aria-selected", String(i === activeResult)));
+          const item = $(`search-result-${activeResult}`);
+          $("search").setAttribute("aria-activedescendant", item.id);
+          item.scrollIntoView({ block: "nearest" });
+        }
+        $("search").addEventListener("input", search);
+        $("search").addEventListener("focus", () => {
+          if ($("search").value.trim()) search();
+        });
+        $("search").addEventListener("keydown", (event) => {
+          if (event.key === "Escape") {
+            hideResults();
+            return;
+          }
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            if ($("search-panel").hidden) search();
+            if ($("search-panel").hidden) return;
+            setActiveResult(
+              activeResult === -1 && event.key === "ArrowUp"
+                ? currentResults.length - 1
+                : activeResult + (event.key === "ArrowDown" ? 1 : -1),
+            );
+          } else if (event.key === "Enter" && !$("search-panel").hidden && currentResults.length) {
+            event.preventDefault();
+            chooseResult(Math.max(0, activeResult));
+          }
+        });
+        $("clear-search").addEventListener("click", () => {
+          $("search").value = "";
+          $("clear-search").hidden = true;
+          hideResults();
+          $("search").focus();
+        });
+        document.addEventListener("click", (event) => {
+          if (!$("search-wrap").contains(event.target)) hideResults();
+        });
+        $("expand-level").addEventListener("click", () => {
+          expandLevel(root);
+          draw();
+          centerNode(selected);
+        });
+        $("collapse-all").addEventListener("click", () => {
+          closeAll();
+          statusNote = "All branches collapsed.";
+          select(root);
+          draw();
+          centerNode(root);
+        });
+        $("fit-view").addEventListener("click", () => fitView());
+        $("reset-view").addEventListener("click", () => {
+          resetBranches();
+          select(root);
+          draw();
+          $("search").value = "";
+          $("clear-search").hidden = true;
+          hideResults();
+          fitView(true);
+          $("announcement").textContent = "View reset to broad groups.";
+        });
+        $("zoom-in").addEventListener("click", () => svg.transition().duration(duration).call(zoom.scaleBy, 1.3));
+        $("zoom-out").addEventListener("click", () =>
+          svg
+            .transition()
+            .duration(duration)
+            .call(zoom.scaleBy, 1 / 1.3),
+        );
+        function resize() {
+          const bounds = treeArea.getBoundingClientRect();
+          const widthChanged = Math.abs(bounds.width - width) > 1;
+          const modeChanged = compactMode !== compactQuery.matches;
+          compactMode = compactQuery.matches;
+          width = bounds.width;
+          height = bounds.height;
+          svg.attr("viewBox", `0 0 ${width} ${height}`);
+          if (modeChanged) {
+            draw();
+          }
+          if (!initialized || widthChanged || modeChanged) {
+            initialized = true;
+            if (selected !== root && modeChanged) centerNode(selected, false);
+            else fitView(true, false);
+          }
+        }
+        resetBranches();
+        draw();
+        select(root, false);
+        resize();
+        if ("ResizeObserver" in window) new ResizeObserver(resize).observe(treeArea);
+        else window.addEventListener("resize", resize);
+      })();
+    </script>
+  </body>
 </html>

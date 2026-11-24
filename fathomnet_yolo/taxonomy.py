@@ -1,4 +1,4 @@
-"""Validated, local taxonomies for labels at different taxonomic depths"""
+"""Validated, local taxonomies for labels at different taxonomic depths."""
 
 import json
 from pathlib import Path
@@ -9,19 +9,17 @@ import numpy as np
 class Taxonomy:
     """Store a rooted tree and the exact class order used by a detector.
 
-    The JSON contains ``nodes`` with ``id``, ``parent``, ``name`` and optional
-    ``rank``, and ``classes`` with contiguous ``class_id``, ``name``, ``node_id``.
-    Classes may identify internal nodes. No missing rank is inferred.
+    The JSON contains ``nodes`` with ``id``, ``parent``, ``name`` and optional ``rank``, and ``classes`` with contiguous
+    ``class_id``, ``name``, ``node_id``. Classes may identify internal nodes. No missing rank is inferred.
 
-    ``edge_count`` measures the shortest path length. ``lca_height`` measures
-    the maximum number of edges below the lowest common ancestor, with zero
-    on the diagonal. It reproduces the usual LCA height on a balanced tree,
-    but is not numerically equivalent to a fixed-rank taxonomy on uneven trees.
+    ``edge_count`` measures the shortest path length. ``lca_height`` measures the maximum number of edges below the
+    lowest common ancestor, with zero on the diagonal. It reproduces the usual LCA height on a balanced tree, but is not
+    numerically equivalent to a fixed-rank taxonomy on uneven trees.
     """
 
     @classmethod
     def from_json(cls, path, class_names=None, distance_mode=None):
-        """Load a local JSON and optionally verify the detector's class order"""
+        """Load a local JSON and optionally verify the detector's class order."""
         with Path(path).open(encoding="utf-8") as stream:
             return cls(json.load(stream), class_names=class_names, distance_mode=distance_mode)
 
@@ -119,7 +117,7 @@ class Taxonomy:
         }
 
     def metadata(self):
-        """Return the distance convention and class order for experiment records"""
+        """Return the distance convention and class order for experiment records."""
         return {
             "schema_version": 1,
             "distance_mode": self.distance_mode,

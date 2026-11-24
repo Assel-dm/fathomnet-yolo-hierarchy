@@ -35,7 +35,16 @@
       "rank": "Order",
       "aphiaId": 607338,
       "acceptedAphiaId": 607338,
-      "alternateNames": ["zoanthids", "Krustenanemonen", "zoanthaires", "encrusting anemones", "\u30b9\u30ca\u30ae\u30f3\u30c1\u30e3\u30af\u76ee", "korstanemonen", "colonial anemones", "zoanthids"]
+      "alternateNames": [
+        "zoanthids",
+        "Krustenanemonen",
+        "zoanthaires",
+        "encrusting anemones",
+        "\u30b9\u30ca\u30ae\u30f3\u30c1\u30e3\u30af\u76ee",
+        "korstanemonen",
+        "colonial anemones",
+        "zoanthids"
+      ]
     }
   }
 }
