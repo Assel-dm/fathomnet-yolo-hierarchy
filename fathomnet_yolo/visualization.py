@@ -12,6 +12,7 @@ Copy this file to fathomnet_yolo/visualization.py, alongside taxonomy.py, and ru
 
 Dependencies: numpy, matplotlib, PyYAML, and the existing Taxonomy helper.
 """
+
 import argparse
 import base64
 import csv
@@ -24,6 +25,7 @@ from html import escape
 from pathlib import Path, PurePosixPath
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import yaml
@@ -34,19 +36,41 @@ except ImportError:
     from fathomnet_yolo.taxonomy import Taxonomy
 
 METRICS = {
-    "map95": "Native mAP50–95", "map50": "Native mAP50",
-    "precision": "Native precision", "recall": "Native recall",
-    "coverage": "Geometric coverage", "exact_coverage": "Coverage with exact labels",
-    "accuracy": "Accuracy on matched objects", "top1_error": "Top-1 error on matched objects",
-    "severity": "Mistake severity", "ahd1": "AHD@1", "ahd5": "AHD@5", "ahd20": "AHD@20",
-    "macro_accuracy": "Mean accuracy per represented class", "macro_ahd1": "Mean AHD@1 per represented class",
-    "matched": "Matched objects", "correct": "Exact labels", "gt": "Annotations",
-    "missed": "Missed annotations", "unmatched": "Unmatched predictions",
+    "map95": "Native mAP50–95",
+    "map50": "Native mAP50",
+    "precision": "Native precision",
+    "recall": "Native recall",
+    "coverage": "Geometric coverage",
+    "exact_coverage": "Coverage with exact labels",
+    "accuracy": "Accuracy on matched objects",
+    "top1_error": "Top-1 error on matched objects",
+    "severity": "Mistake severity",
+    "ahd1": "AHD@1",
+    "ahd5": "AHD@5",
+    "ahd20": "AHD@20",
+    "macro_accuracy": "Mean accuracy per represented class",
+    "macro_ahd1": "Mean AHD@1 per represented class",
+    "matched": "Matched objects",
+    "correct": "Exact labels",
+    "gt": "Annotations",
+    "missed": "Missed annotations",
+    "unmatched": "Unmatched predictions",
     "native_delta_map95": "Δ mAP50–95 vs native, same seed",
     "native_delta_ahd1": "Δ AHD@1 vs native, common objects",
     "control_delta_ahd1": "Δ AHD@1 vs α=0, common objects",
 }
-RATES = {"map95", "map50", "precision", "recall", "coverage", "exact_coverage", "accuracy", "macro_accuracy", "top1_error", "native_delta_map95"}
+RATES = {
+    "map95",
+    "map50",
+    "precision",
+    "recall",
+    "coverage",
+    "exact_coverage",
+    "accuracy",
+    "macro_accuracy",
+    "top1_error",
+    "native_delta_map95",
+}
 COLORS = ("#007d79", "#cc6b18", "#6554a4", "#c83f5d", "#2369aa", "#596b38")
 
 
@@ -103,10 +127,12 @@ def aggregate_seeds(records):
     for row in records:
         grouped[group_key(row)].append(row)
     result = []
-    for key, rows in grouped.items():
+    for rows in grouped.values():
         seeds = [row["seed"] for row in rows]
         if len(set(seeds)) != len(seeds):
-            raise ValueError(f"Multiple checkpoints for the same configuration and seed: {run_label(rows[0], False)}. Select one run per seed.")
+            raise ValueError(
+                f"Multiple checkpoints for the same configuration and seed: {run_label(rows[0], False)}. Select one run per seed."
+            )
         first = rows[0]
         out = {k: first[k] for k in ("protocol", "model", "method", "alpha", "lambda", "split")}
         out.update(label=run_label(first, False), n_seeds=len(seeds), seeds=", ".join(map(str, sorted(seeds))))
@@ -155,17 +181,24 @@ def load_records(args):
             raise ValueError(f"Taxonomy incompatible with {path}")
         ignored = {"name", "save_dir", "project", "seed", "hxe_alpha", "hxe_weight", "hxe_taxonomy", "data", "cfg"}
         inference_keys = ("batch", "imgsz", "conf", "iou", "max_det", "rect", "single_cls", "agnostic_nms", "augment")
-        protocol = fingerprint({
-            "data": summary["dataset_yaml"]["sha256"], "taxonomy": summary["taxonomy_file"]["sha256"],
-            "split": summary["split"], "version": summary["ultralytics_version"],
-            "distance": mode, "hierarchy": report["protocol"],
-            "validation": {k: summary["validation_args"].get(k) for k in inference_keys},
-            "training": {k: v for k, v in cfg.items() if k not in ignored},
-        })
+        protocol = fingerprint(
+            {
+                "data": summary["dataset_yaml"]["sha256"],
+                "taxonomy": summary["taxonomy_file"]["sha256"],
+                "split": summary["split"],
+                "version": summary["ultralytics_version"],
+                "distance": mode,
+                "hierarchy": report["protocol"],
+                "validation": {k: summary["validation_args"].get(k) for k in inference_keys},
+                "training": {k: v for k, v in cfg.items() if k not in ignored},
+            }
+        )
         identity = protocol, summary["checkpoint"]["sha256"]
         if identity in seen:
             if seen[identity] != int(cfg["seed"]):
-                raise ValueError("The same checkpoint is assigned to multiple seeds; these are not independent repetitions.")
+                raise ValueError(
+                    "The same checkpoint is assigned to multiple seeds; these are not independent repetitions."
+                )
             duplicates.append(str(path))
             continue
         seen[identity] = int(cfg["seed"])
@@ -186,26 +219,55 @@ def load_records(args):
         for m in index.values():
             class_groups[m["target_class"]].append(m)
         actual_ahd = statistics.mean(distances) if n else None
-        if n != scores["num_matched"] or (n and not math.isclose(actual_ahd, scores["avg_hierarchical_distance@1"], abs_tol=1e-9)):
+        if n != scores["num_matched"] or (
+            n and not math.isclose(actual_ahd, scores["avg_hierarchical_distance@1"], abs_tol=1e-9)
+        ):
             raise ValueError(f"Matches and taxonomy do not reproduce the metrics in {path}")
         det = summary["native_detection_metrics"]
-        row = {"protocol": protocol, "model": Path(str(cfg["model"])).name,
-               "method": "native" if not weight else ("auxiliary" if alpha == 0 else "hxe"),
-               "alpha": alpha, "lambda": weight, "seed": int(cfg["seed"]), "split": summary["split"],
-               "run": train_name, "checkpoint_sha256": summary["checkpoint"]["sha256"],
-               "map95": det["metrics/mAP50-95(B)"], "map50": det["metrics/mAP50(B)"],
-               "precision": det["metrics/precision(B)"], "recall": det["metrics/recall(B)"],
-               "coverage": n / gt if gt else None, "exact_coverage": correct / gt if gt else None,
-               "accuracy": scores["top1_accuracy"], "top1_error": 1 - correct / n if n else None,
-               "severity": scores["mistake_severity"], "ahd1": scores["avg_hierarchical_distance@1"],
-               "ahd5": scores.get("avg_hierarchical_distance@5"), "ahd20": scores.get("avg_hierarchical_distance@20"),
-               "macro_accuracy": statistics.mean(statistics.mean(m["correct"] for m in pop) for pop in class_groups.values()) if class_groups else None,
-               "macro_ahd1": statistics.mean(statistics.mean(m["distance"] for m in pop) for pop in class_groups.values()) if class_groups else None,
-               "matched": n, "correct": correct, "gt": gt, "missed": scores["num_missed"],
-               "unmatched": scores["num_unmatched_predictions"],
-               "_index": index, "_tax": tax, "_scores": scores,
-               "_config": cfg, "_train_dir": config_path.parent, "_eval_dir": path.parent,
-               "_history": read_csv(config_path.parent / "results.csv"), "_summary": summary}
+        row = {
+            "protocol": protocol,
+            "model": Path(str(cfg["model"])).name,
+            "method": "native" if not weight else ("auxiliary" if alpha == 0 else "hxe"),
+            "alpha": alpha,
+            "lambda": weight,
+            "seed": int(cfg["seed"]),
+            "split": summary["split"],
+            "run": train_name,
+            "checkpoint_sha256": summary["checkpoint"]["sha256"],
+            "map95": det["metrics/mAP50-95(B)"],
+            "map50": det["metrics/mAP50(B)"],
+            "precision": det["metrics/precision(B)"],
+            "recall": det["metrics/recall(B)"],
+            "coverage": n / gt if gt else None,
+            "exact_coverage": correct / gt if gt else None,
+            "accuracy": scores["top1_accuracy"],
+            "top1_error": 1 - correct / n if n else None,
+            "severity": scores["mistake_severity"],
+            "ahd1": scores["avg_hierarchical_distance@1"],
+            "ahd5": scores.get("avg_hierarchical_distance@5"),
+            "ahd20": scores.get("avg_hierarchical_distance@20"),
+            "macro_accuracy": statistics.mean(
+                statistics.mean(m["correct"] for m in pop) for pop in class_groups.values()
+            )
+            if class_groups
+            else None,
+            "macro_ahd1": statistics.mean(statistics.mean(m["distance"] for m in pop) for pop in class_groups.values())
+            if class_groups
+            else None,
+            "matched": n,
+            "correct": correct,
+            "gt": gt,
+            "missed": scores["num_missed"],
+            "unmatched": scores["num_unmatched_predictions"],
+            "_index": index,
+            "_tax": tax,
+            "_scores": scores,
+            "_config": cfg,
+            "_train_dir": config_path.parent,
+            "_eval_dir": path.parent,
+            "_history": read_csv(config_path.parent / "results.csv"),
+            "_summary": summary,
+        }
         records.append(row)
     if not records:
         raise ValueError("No compatible evaluations found: check runs-dir/detect and runs-dir/fathomnet-hierarchy.")
@@ -220,9 +282,11 @@ def paired_objects(reference, row):
     right = [row["_index"][k] for k in keys]
     if any(l["target_class"] != r["target_class"] for l, r in zip(left, right)):
         raise ValueError("Different target classes for the same annotation.")
-    return {"objects": len(keys),
-            "delta_accuracy": statistics.mean(r["correct"] - l["correct"] for l, r in zip(left, right)),
-            "delta_ahd1": statistics.mean(r["distance"] - l["distance"] for l, r in zip(left, right))}
+    return {
+        "objects": len(keys),
+        "delta_accuracy": statistics.mean(r["correct"] - l["correct"] for l, r in zip(left, right)),
+        "delta_ahd1": statistics.mean(r["distance"] - l["distance"] for l, r in zip(left, right)),
+    }
 
 
 def add_references(records):
@@ -242,7 +306,11 @@ def add_references(records):
         control = controls.get((row["protocol"], row["seed"], row["lambda"]))
         row["native_delta_map95"] = row["map95"] - native["map95"] if native else None
         for label, reference in (("native", native), ("control", control)):
-            pair = paired_objects(reference, row) if reference else {"objects": None, "delta_accuracy": None, "delta_ahd1": None}
+            pair = (
+                paired_objects(reference, row)
+                if reference
+                else {"objects": None, "delta_accuracy": None, "delta_ahd1": None}
+            )
             row[f"{label}_common_objects"] = pair["objects"]
             row[f"{label}_delta_ahd1"] = pair["delta_ahd1"]
             row[f"{label}_delta_accuracy"] = pair["delta_accuracy"]
@@ -262,15 +330,31 @@ def place_labels(ax, points):
     bounds = ax.get_window_extent(renderer).padded(-3)
     marks = [Bbox.from_bounds(*((ax.transData.transform((x, y)) - 5).tolist()), 10, 10) for x, y, text in points]
     occupied = []
-    offsets = ((6, 7), (6, -14), (-6, 7), (-6, -14), (8, 21), (-8, 21), (8, -26), (-8, -26), (15, 0), (-15, 0), (8, 34), (-8, 34))
+    offsets = (
+        (6, 7),
+        (6, -14),
+        (-6, 7),
+        (-6, -14),
+        (8, 21),
+        (-8, 21),
+        (8, -26),
+        (-8, -26),
+        (15, 0),
+        (-15, 0),
+        (8, 34),
+        (-8, 34),
+    )
     for x, y, text in points:
         chosen = None
         for dx, dy in offsets:
             transform = offset_copy(ax.transData, fig=ax.figure, x=dx, y=dy, units="points")
             label = ax.text(x, y, text, transform=transform, ha="left" if dx > 0 else "right", fontsize=8)
             box = label.get_window_extent(renderer).expanded(1.03, 1.16)
-            if (bounds.contains(box.x0, box.y0) and bounds.contains(box.x1, box.y1)
-                    and not any(box.overlaps(other) for other in occupied + marks)):
+            if (
+                bounds.contains(box.x0, box.y0)
+                and bounds.contains(box.x1, box.y1)
+                and not any(box.overlaps(other) for other in occupied + marks)
+            ):
                 occupied.append(box)
                 chosen = label
                 break
@@ -285,7 +369,14 @@ def draw_tradeoffs(summary, output, sweep):
     for protocol in sorted({r["protocol"] for r in summary}):
         rows = [r for r in summary if r["protocol"] == protocol]
         fig, axes = plt.subplots(3, 2, figsize=(12.4, 12))
-        specs = (("top1_error", "severity"), ("top1_error", "ahd1"), ("top1_error", "ahd5"), ("top1_error", "ahd20"), ("map95", "ahd1"), ("exact_coverage", "ahd1"))
+        specs = (
+            ("top1_error", "severity"),
+            ("top1_error", "ahd1"),
+            ("top1_error", "ahd5"),
+            ("top1_error", "ahd20"),
+            ("map95", "ahd1"),
+            ("exact_coverage", "ahd1"),
+        )
         label_sets = []
         fixed_lambda = len({r["lambda"] for r in rows if r["method"] != "native"}) == 1
         fixed_alpha = len({r["alpha"] for r in rows if r["method"] != "native"}) == 1
@@ -299,18 +390,40 @@ def draw_tradeoffs(summary, output, sweep):
                 dx, dy = row.get(f"{x}_std"), row.get(f"{y}_std")
                 native = row["method"] == "native"
                 color = "#303c47" if native else COLORS[i % len(COLORS)]
-                ax.errorbar(xx * xf, yy, xerr=dx * xf if finite(dx) else None, yerr=dy if finite(dy) else None,
-                            marker="*" if native else "o", markersize=10 if native else 6,
-                            color=color, capsize=3, linewidth=1, linestyle="none")
-                annotation = "Native" if native else (f"α={row['alpha']:g}" if fixed_lambda else f"λ={row['lambda']:g}" if fixed_alpha else f"α={row['alpha']:g} λ={row['lambda']:g}")
+                ax.errorbar(
+                    xx * xf,
+                    yy,
+                    xerr=dx * xf if finite(dx) else None,
+                    yerr=dy if finite(dy) else None,
+                    marker="*" if native else "o",
+                    markersize=10 if native else 6,
+                    color=color,
+                    capsize=3,
+                    linewidth=1,
+                    linestyle="none",
+                )
+                annotation = (
+                    "Native"
+                    if native
+                    else (
+                        f"α={row['alpha']:g}"
+                        if fixed_lambda
+                        else f"λ={row['lambda']:g}"
+                        if fixed_alpha
+                        else f"α={row['alpha']:g} λ={row['lambda']:g}"
+                    )
+                )
                 points.append((xx * xf, yy, annotation))
             ax.set(xlabel=METRICS[x] + (" (%)" if x in RATES else ""), ylabel=METRICS[y])
-            ax.grid(alpha=.2)
-            ax.margins(x=.22, y=.24)
+            ax.grid(alpha=0.2)
+            ax.margins(x=0.22, y=0.24)
             label_sets.append((ax, points))
         parameter = "α" if sweep == "alpha" else "λ"
-        fig.suptitle(f"{parameter} sweep · protocol {protocol}\nPoints = means across seeds; error bars = standard deviations when n ≥ 2", fontsize=11)
-        fig.tight_layout(rect=(0, 0, 1, .95))
+        fig.suptitle(
+            f"{parameter} sweep · protocol {protocol}\nPoints = means across seeds; error bars = standard deviations when n ≥ 2",
+            fontsize=11,
+        )
+        fig.tight_layout(rect=(0, 0, 1, 0.95))
         fig.canvas.draw()
         for ax, points in label_sets:
             place_labels(ax, points)
@@ -332,13 +445,15 @@ def plot_learning_curves(row, output):
             if selected:
                 ax.plot([r["epoch"] for r in selected], [r[key] for r in selected], label=label)
         ax.set(xlabel="Epoch", ylabel={"box": "Box loss", "cls": "Classification loss", "dfl": "DFL loss"}[component])
-        ax.grid(alpha=.2); ax.legend(fontsize=8)
+        ax.grid(alpha=0.2)
+        ax.legend(fontsize=8)
     ax = axes.flat[3]
     for key, label in (("metrics/mAP50-95(B)", "mAP50–95"), ("metrics/mAP50(B)", "mAP50")):
         selected = [r for r in history if finite(r.get(key))]
         ax.plot([r["epoch"] for r in selected], [100 * r[key] for r in selected], label=label)
     ax.set(xlabel="Epoch", ylabel="Internal mAP (%)")
-    ax.grid(alpha=.2); ax.legend(fontsize=8)
+    ax.grid(alpha=0.2)
+    ax.legend(fontsize=8)
     fig.suptitle(run_label(row))
     fig.tight_layout()
     path = output / "figures" / f"learning_{row['_slug']}.png"
@@ -352,29 +467,44 @@ def per_class_data(row):
     for c, name in enumerate(tax.class_names):
         pop = [m for m in index.values() if m["target_class"] == c]
         mistakes = [m for m in pop if not m["correct"]]
-        records.append({"class_id": c, "class": name, "matched_support": len(pop),
-                        "correct": sum(m["correct"] for m in pop),
-                        "accuracy": statistics.mean(m["correct"] for m in pop) if pop else None,
-                        "ahd1": statistics.mean(m["distance"] for m in pop) if pop else None,
-                        "severity": statistics.mean(m["distance"] for m in mistakes) if mistakes else None})
+        records.append(
+            {
+                "class_id": c,
+                "class": name,
+                "matched_support": len(pop),
+                "correct": sum(m["correct"] for m in pop),
+                "accuracy": statistics.mean(m["correct"] for m in pop) if pop else None,
+                "ahd1": statistics.mean(m["distance"] for m in pop) if pop else None,
+                "severity": statistics.mean(m["distance"] for m in mistakes) if mistakes else None,
+            }
+        )
     return records
 
 
 def plot_per_class(row, classes, output):
-    selected = sorted((c for c in classes if c["matched_support"]), key=lambda r: (r["accuracy"], -r["matched_support"]))[:20]
-    fig, axes = plt.subplots(1, 2, figsize=(12.8, max(4.5, len(selected) * .23)))
+    selected = sorted(
+        (c for c in classes if c["matched_support"]), key=lambda r: (r["accuracy"], -r["matched_support"])
+    )[:20]
+    fig, axes = plt.subplots(1, 2, figsize=(12.8, max(4.5, len(selected) * 0.23)))
     if selected:
         axes[0].barh(range(len(selected)), [100 * c["accuracy"] for c in selected], color="#007d79")
-        axes[0].set_yticks(range(len(selected)), [f"{c['class']} (n={c['matched_support']})" for c in selected], fontsize=7)
+        axes[0].set_yticks(
+            range(len(selected)), [f"{c['class']} (n={c['matched_support']})" for c in selected], fontsize=7
+        )
         axes[0].invert_yaxis()
     axes[0].set(xlabel="Accuracy on matched objects (%)", xlim=(0, 100), title="20 lowest conditional class accuracies")
     counts = Counter(m["distance"] for m in row["_index"].values() if not m["correct"])
     if counts:
         axes[1].bar(sorted(counts), [counts[d] for d in sorted(counts)], color="#cc6b18")
     else:
-        axes[1].text(.5, .5, "No errors among matched objects", ha="center", transform=axes[1].transAxes)
-    axes[1].set(xlabel="Taxonomic distance", ylabel="Classification errors on matched objects", title="Error distance distribution")
-    fig.suptitle(run_label(row)); fig.tight_layout()
+        axes[1].text(0.5, 0.5, "No errors among matched objects", ha="center", transform=axes[1].transAxes)
+    axes[1].set(
+        xlabel="Taxonomic distance",
+        ylabel="Classification errors on matched objects",
+        title="Error distance distribution",
+    )
+    fig.suptitle(run_label(row))
+    fig.tight_layout()
     path = output / "figures" / f"classes_{row['_slug']}.png"
     save_figure(fig, path)
     return path
@@ -396,7 +526,9 @@ def html_table(rows, columns):
         return formatted(value, key in RATES)
 
     header = "".join(f"<th>{escape(label)}</th>" for key, label in columns)
-    body = "".join("<tr>" + "".join(f"<td>{escape(cell(row, key))}</td>" for key, label in columns) + "</tr>" for row in rows)
+    body = "".join(
+        "<tr>" + "".join(f"<td>{escape(cell(row, key))}</td>" for key, label in columns) + "</tr>" for row in rows
+    )
     return f'<div class="table-wrap"><table><thead><tr>{header}</tr></thead><tbody>{body}</tbody></table></div>'
 
 
@@ -408,34 +540,79 @@ def picture(path, caption):
 
 
 def build_html(records, summary, figures, output, args, duplicates):
-    parts = ["<h1>YOLO / FathomNet: detection and hierarchy</h1>",
-             '<nav><a href="#comparison">Comparisons</a> · <a href="#seeds">Across seeds</a> · <a href="#runs">Run details</a></nav>',
-             f"<p>Distinct checkpoints: {len(records)} · Seeds observed: {len(set(r['seed'] for r in records))} · Distance mode: {escape(args.distance_mode)}.</p>",
-             '<p class="note">Hierarchical distances and accuracies apply only to matched objects. Read them alongside coverage, missed annotations and unmatched predictions. Native YOLO (λ=0) is distinct from the auxiliary control α=0, λ&gt;0.</p>',
-             '<h2 id="comparison">Metrics by run</h2>',
-             '<p>mAP comes from a separate native evaluation of the selected checkpoint. Learning curves use internal validation during training; these two evaluations are kept separate.</p>']
+    parts = [
+        "<h1>YOLO / FathomNet: detection and hierarchy</h1>",
+        '<nav><a href="#comparison">Comparisons</a> · <a href="#seeds">Across seeds</a> · <a href="#runs">Run details</a></nav>',
+        f"<p>Distinct checkpoints: {len(records)} · Seeds observed: {len({r['seed'] for r in records})} · Distance mode: {escape(args.distance_mode)}.</p>",
+        '<p class="note">Hierarchical distances and accuracies apply only to matched objects. Read them alongside coverage, missed annotations and unmatched predictions. Native YOLO (λ=0) is distinct from the auxiliary control α=0, λ&gt;0.</p>',
+        '<h2 id="comparison">Metrics by run</h2>',
+        "<p>mAP comes from a separate native evaluation of the selected checkpoint. Learning curves use internal validation during training; these two evaluations are kept separate.</p>",
+    ]
     identity_columns = [("label", "Run")]
     if len({r["protocol"] for r in records}) > 1:
         identity_columns.append(("protocol", "Protocol"))
     labeled = [dict(r, label=run_label(r)) for r in records]
     parts.append("<h3>Detection and coverage</h3>")
-    parts.append(html_table(labeled, identity_columns + [
-        ("map95", METRICS["map95"]), ("map50", "mAP50"), ("precision", "Native precision"), ("recall", "Native recall"),
-        ("coverage", "Geometric coverage"), ("exact_coverage", "Coverage with exact labels"), ("matched", "Matched"), ("missed", "Missed"), ("unmatched", "Unmatched predictions")]))
+    parts.append(
+        html_table(
+            labeled,
+            [
+                *identity_columns,
+                ("map95", METRICS["map95"]),
+                ("map50", "mAP50"),
+                ("precision", "Native precision"),
+                ("recall", "Native recall"),
+                ("coverage", "Geometric coverage"),
+                ("exact_coverage", "Coverage with exact labels"),
+                ("matched", "Matched"),
+                ("missed", "Missed"),
+                ("unmatched", "Unmatched predictions"),
+            ],
+        )
+    )
     parts.append("<h3>Hierarchy on matched objects</h3>")
-    parts.append(html_table(labeled, identity_columns + [
-        ("accuracy", "Accuracy on matched objects"), ("severity", "Severity"), ("ahd1", "AHD@1"), ("ahd5", "AHD@5"), ("ahd20", "AHD@20"),
-        ("macro_accuracy", "Mean accuracy per class"), ("macro_ahd1", "Mean AHD@1 per class"), ("matched", "Matched")]))
+    parts.append(
+        html_table(
+            labeled,
+            [
+                *identity_columns,
+                ("accuracy", "Accuracy on matched objects"),
+                ("severity", "Severity"),
+                ("ahd1", "AHD@1"),
+                ("ahd5", "AHD@5"),
+                ("ahd20", "AHD@20"),
+                ("macro_accuracy", "Mean accuracy per class"),
+                ("macro_ahd1", "Mean AHD@1 per class"),
+                ("matched", "Matched"),
+            ],
+        )
+    )
     parts.append("<h3>Comparisons on common annotations within each seed</h3>")
-    parts.append(html_table([dict(r, label=run_label(r)) for r in records], [
-        ("label", "Run"), ("native_common_objects", "Common objects vs native"),
-        ("native_delta_map95", "Δ mAP vs native"), ("native_delta_accuracy", "Δ accuracy vs native"),
-        ("native_delta_ahd1", "Δ AHD@1 vs native"), ("control_common_objects", "Common objects vs α=0"),
-        ("control_delta_accuracy", "Δ accuracy vs α=0"), ("control_delta_ahd1", "Δ AHD@1 vs α=0")]))
-    parts.extend(picture(path, "Means and standard deviations across seeds within the same protocol") for path in figures)
-    parts.append('<p>Lower distances and top-1 error are preferable. Higher mAP and coverage are preferable. Class averages include only classes with at least one matched object.</p>')
-    parts += ['<h2 id="seeds">Means and standard deviations across seeds</h2>',
-              '<p>Each seed contributes once. Sample standard deviation uses n−1; for a single seed it is shown as “—”, never zero. Comparisons against native YOLO or α=0 use the same seed and common annotations. The valid seed count can be smaller than the total when a metric is undefined.</p>']
+    parts.append(
+        html_table(
+            [dict(r, label=run_label(r)) for r in records],
+            [
+                ("label", "Run"),
+                ("native_common_objects", "Common objects vs native"),
+                ("native_delta_map95", "Δ mAP vs native"),
+                ("native_delta_accuracy", "Δ accuracy vs native"),
+                ("native_delta_ahd1", "Δ AHD@1 vs native"),
+                ("control_common_objects", "Common objects vs α=0"),
+                ("control_delta_accuracy", "Δ accuracy vs α=0"),
+                ("control_delta_ahd1", "Δ AHD@1 vs α=0"),
+            ],
+        )
+    )
+    parts.extend(
+        picture(path, "Means and standard deviations across seeds within the same protocol") for path in figures
+    )
+    parts.append(
+        "<p>Lower distances and top-1 error are preferable. Higher mAP and coverage are preferable. Class averages include only classes with at least one matched object.</p>"
+    )
+    parts += [
+        '<h2 id="seeds">Means and standard deviations across seeds</h2>',
+        "<p>Each seed contributes once. Sample standard deviation uses n−1; for a single seed it is shown as “—”, never zero. Comparisons against native YOLO or α=0 use the same seed and common annotations. The valid seed count can be smaller than the total when a metric is undefined.</p>",
+    ]
     compact_metrics = ("map95", "exact_coverage", "accuracy", "severity", "ahd1", "ahd5", "ahd20")
     compact_rows = []
     for group in summary:
@@ -455,27 +632,94 @@ def build_html(records, summary, figures, output, args, duplicates):
     parts.append(html_table(compact_rows, compact_columns))
     parts.append("<details><summary>Complete statistics and differences from reference models</summary>")
     stats_rows = []
-    selected_metrics = ("map95", "exact_coverage", "accuracy", "macro_accuracy", "severity", "ahd1", "ahd5", "ahd20", "macro_ahd1", "native_delta_map95", "native_delta_ahd1", "control_delta_ahd1")
+    selected_metrics = (
+        "map95",
+        "exact_coverage",
+        "accuracy",
+        "macro_accuracy",
+        "severity",
+        "ahd1",
+        "ahd5",
+        "ahd20",
+        "macro_ahd1",
+        "native_delta_map95",
+        "native_delta_ahd1",
+        "control_delta_ahd1",
+    )
     for group in summary:
         for metric in selected_metrics:
             avg, sd = group[f"{metric}_mean"], group[f"{metric}_std"]
-            mean_label = f"{100 * avg:+.2f} pp" if metric == "native_delta_map95" and finite(avg) else formatted(avg, metric in RATES)
-            std_label = f"{100 * sd:.2f} pp" if metric == "native_delta_map95" and finite(sd) else formatted(sd, metric in RATES)
-            stats_rows.append({"label": group["label"], "protocol": group["protocol"], "seeds": group["seeds"], "n_seeds": group["n_seeds"],
-                               "metric": METRICS[metric] + (" (percentage points)" if metric.startswith("native_delta_map") else ""),
-                               "mean": mean_label, "std": std_label, "n_metric": group[f"{metric}_n"]})
-    parts.append(html_table(stats_rows, [("label", "Configuration"), ("protocol", "Protocol"), ("seeds", "Seeds"), ("n_seeds", "n seeds"), ("metric", "Metric"), ("mean", "Mean"), ("std", "Standard deviation"), ("n_metric", "Valid seeds")]))
+            mean_label = (
+                f"{100 * avg:+.2f} pp"
+                if metric == "native_delta_map95" and finite(avg)
+                else formatted(avg, metric in RATES)
+            )
+            std_label = (
+                f"{100 * sd:.2f} pp"
+                if metric == "native_delta_map95" and finite(sd)
+                else formatted(sd, metric in RATES)
+            )
+            stats_rows.append(
+                {
+                    "label": group["label"],
+                    "protocol": group["protocol"],
+                    "seeds": group["seeds"],
+                    "n_seeds": group["n_seeds"],
+                    "metric": METRICS[metric]
+                    + (" (percentage points)" if metric.startswith("native_delta_map") else ""),
+                    "mean": mean_label,
+                    "std": std_label,
+                    "n_metric": group[f"{metric}_n"],
+                }
+            )
+    parts.append(
+        html_table(
+            stats_rows,
+            [
+                ("label", "Configuration"),
+                ("protocol", "Protocol"),
+                ("seeds", "Seeds"),
+                ("n_seeds", "n seeds"),
+                ("metric", "Metric"),
+                ("mean", "Mean"),
+                ("std", "Standard deviation"),
+                ("n_metric", "Valid seeds"),
+            ],
+        )
+    )
     parts.append("</details>")
-    parts += ['<h2 id="runs">Learning curves, classes and confusions</h2>',
-              '<p>Classes may represent different taxonomic ranks. Supports below count matched objects, not images. The current exports do not provide enough information to compute detection F1 or AP per class here.</p>']
+    parts += [
+        '<h2 id="runs">Learning curves, classes and confusions</h2>',
+        "<p>Classes may represent different taxonomic ranks. Supports below count matched objects, not images. The current exports do not provide enough information to compute detection F1 or AP per class here.</p>",
+    ]
     for row in records:
         parts.append(f"<details><summary>{escape(run_label(row))}</summary>")
-        parts.append(f"<p>Protocol {escape(row['protocol'])} · split {escape(row['split'])} · {row['gt']} annotations · {row['matched']} matched · {row['missed']} missed · {row['unmatched']} unmatched predictions.</p>")
-        parts.append(picture(row["_learning_plot"], "Unsmoothed internal learning curves; loss scales depend on the objective"))
+        parts.append(
+            f"<p>Protocol {escape(row['protocol'])} · split {escape(row['split'])} · {row['gt']} annotations · {row['matched']} matched · {row['missed']} missed · {row['unmatched']} unmatched predictions.</p>"
+        )
+        parts.append(
+            picture(row["_learning_plot"], "Unsmoothed internal learning curves; loss scales depend on the objective")
+        )
         parts.append(picture(row["_classes_plot"], "Conditional classification and error distances"))
-        parts.append('<p>“—” denotes an undefined metric, including no matched objects, or no classification errors when computing severity.</p>')
-        classes = sorted(row["_classes"], key=lambda r: (r["accuracy"] is None, r["accuracy"] or 0, -r["matched_support"]))
-        parts.append(html_table(classes, [("class", "Target class"), ("matched_support", "Matched support"), ("correct", "Exact labels"), ("accuracy", "Accuracy"), ("ahd1", "AHD@1"), ("severity", "Severity")]))
+        parts.append(
+            "<p>“—” denotes an undefined metric, including no matched objects, or no classification errors when computing severity.</p>"
+        )
+        classes = sorted(
+            row["_classes"], key=lambda r: (r["accuracy"] is None, r["accuracy"] or 0, -r["matched_support"])
+        )
+        parts.append(
+            html_table(
+                classes,
+                [
+                    ("class", "Target class"),
+                    ("matched_support", "Matched support"),
+                    ("correct", "Exact labels"),
+                    ("accuracy", "Accuracy"),
+                    ("ahd1", "AHD@1"),
+                    ("severity", "Severity"),
+                ],
+            )
+        )
         rank_rows = []
         for key, support in row["_scores"].items():
             if key.endswith("_support"):
@@ -483,16 +727,36 @@ def build_html(records, summary, figures, output, args, duplicates):
                 accuracy = row["_scores"].get(f"{rank}_accuracy_top1_ancestor")
                 rank_rows.append({"rank": rank, "eligible": support, "accuracy": accuracy})
         parts.append("<h3>Accuracy by rank on eligible objects</h3>")
-        parts.append(html_table(rank_rows, [("rank", "Rank"), ("eligible", "Eligible support"), ("accuracy", "Accuracy of the top-1 ancestor")]))
+        parts.append(
+            html_table(
+                rank_rows,
+                [("rank", "Rank"), ("eligible", "Eligible support"), ("accuracy", "Accuracy of the top-1 ancestor")],
+            )
+        )
         pairs = Counter((m["target_class"], m["predicted_class"]) for m in row["_index"].values() if not m["correct"])
-        confusions = [{"target": row["_tax"].class_names[t], "prediction": row["_tax"].class_names[p], "count": count, "distance": float(row["_tax"].distance_matrix[t, p])} for (t, p), count in pairs.most_common(25)]
+        confusions = [
+            {
+                "target": row["_tax"].class_names[t],
+                "prediction": row["_tax"].class_names[p],
+                "count": count,
+                "distance": float(row["_tax"].distance_matrix[t, p]),
+            }
+            for (t, p), count in pairs.most_common(25)
+        ]
         parts.append("<h3>25 most frequent confusions on matched objects</h3>")
-        parts.append(html_table(confusions, [("target", "Target"), ("prediction", "Prediction"), ("count", "Count"), ("distance", "Distance")]))
+        parts.append(
+            html_table(
+                confusions,
+                [("target", "Target"), ("prediction", "Prediction"), ("count", "Count"), ("distance", "Distance")],
+            )
+        )
         parts.append("</details>")
-    parts += ["<h2>Protocol notes</h2>",
-              '<p>Incompatible protocols are neither aggregated nor plotted together. Their identifiers account for the data, taxonomy, split, validation settings and other training parameters. Statistics across seeds are not computed by pooling all annotations from every seed.</p>',
-              '<p>AHD@k averages the distances of all labels in the top-k. Severity averages only exact-label classification errors. Increasing α also changes the scale of HXE in the unnormalised formulation.</p>',
-              f"<p>Repeated evaluations of the same checkpoint ignored: {len(duplicates)}. Complete CSV exports accompany this report.</p>"]
+    parts += [
+        "<h2>Protocol notes</h2>",
+        "<p>Incompatible protocols are neither aggregated nor plotted together. Their identifiers account for the data, taxonomy, split, validation settings and other training parameters. Statistics across seeds are not computed by pooling all annotations from every seed.</p>",
+        "<p>AHD@k averages the distances of all labels in the top-k. Severity averages only exact-label classification errors. Increasing α also changes the scale of HXE in the unnormalised formulation.</p>",
+        f"<p>Repeated evaluations of the same checkpoint ignored: {len(duplicates)}. Complete CSV exports accompany this report.</p>",
+    ]
     css = """body{font:15px/1.5 system-ui,sans-serif;color:#203340;background:#f5f7f9;margin:0}
     main{max-width:1250px;margin:auto;padding:24px}h1{overflow-wrap:anywhere}h2{margin-top:32px}
     nav,a{color:#007d79}details,figure,.table-wrap{background:white;border:1px solid #dce4e8;border-radius:8px}
@@ -502,7 +766,14 @@ def build_html(records, summary, figures, output, args, duplicates):
     th,td{padding:8px;white-space:nowrap;border-bottom:1px solid #e2e8ec}th{position:sticky;top:0;background:#eef3f5}
     .note{padding:12px;background:#fff2d9}@media(max-width:600px){main{padding:12px}details{padding:10px}}
     """
-    (output / "report.html").write_text('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FathomNet: detection and hierarchy</title><style>' + css + "</style></head><body><main>" + "".join(parts) + "</main></body></html>", encoding="utf-8")
+    (output / "report.html").write_text(
+        '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FathomNet: detection and hierarchy</title><style>'
+        + css
+        + "</style></head><body><main>"
+        + "".join(parts)
+        + "</main></body></html>",
+        encoding="utf-8",
+    )
 
 
 def build_reports(args):
@@ -519,17 +790,31 @@ def build_reports(args):
         row["_classes"] = per_class_data(row)
         row["_learning_plot"] = plot_learning_curves(row, output)
         row["_classes_plot"] = plot_per_class(row, row["_classes"], output)
-        class_rows.extend(dict(c, run=row["run"], seed=row["seed"], alpha=row["alpha"], lambda_weight=row["lambda"], protocol=row["protocol"]) for c in row["_classes"])
+        class_rows.extend(
+            dict(
+                c,
+                run=row["run"],
+                seed=row["seed"],
+                alpha=row["alpha"],
+                lambda_weight=row["lambda"],
+                protocol=row["protocol"],
+            )
+            for c in row["_classes"]
+        )
     figures = draw_tradeoffs(summary, output, args.sweep)
     write_csv(output / "comparison.csv", records)
     write_csv(output / "seed_summary.csv", summary)
     write_csv(output / "per_class_comparison.csv", class_rows)
-    manifest = {"runs": len(records), "groups": len(summary), "distance_mode": args.distance_mode,
-                "taxonomy_used_sha256": hashlib.sha256(args.taxonomy.read_bytes()).hexdigest(),
-                "reported_taxonomy_sha256": sorted({r["_summary"]["taxonomy_file"]["sha256"] for r in records}),
-                "ignored_duplicate_evaluations": duplicates,
-                "protocols": sorted({r["protocol"] for r in records}),
-                "evaluations": [str(r["_eval_dir"]) for r in records]}
+    manifest = {
+        "runs": len(records),
+        "groups": len(summary),
+        "distance_mode": args.distance_mode,
+        "taxonomy_used_sha256": hashlib.sha256(args.taxonomy.read_bytes()).hexdigest(),
+        "reported_taxonomy_sha256": sorted({r["_summary"]["taxonomy_file"]["sha256"] for r in records}),
+        "ignored_duplicate_evaluations": duplicates,
+        "protocols": sorted({r["protocol"] for r in records}),
+        "evaluations": [str(r["_eval_dir"]) for r in records],
+    }
     (output / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     build_html(records, summary, figures, output, args, duplicates)
     print(f"Report: {output / 'report.html'}")

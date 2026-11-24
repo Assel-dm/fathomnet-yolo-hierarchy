@@ -4,16 +4,16 @@ import math
 from numbers import Real
 
 import torch
-from fathomnet_yolo.taxonomy import Taxonomy
 from torch import nn
 from torch.nn import functional as F
+
+from fathomnet_yolo.taxonomy import Taxonomy
 
 
 class HierarchicalSoftLabelLoss(nn.Module):
     """Compare foreground logits with fixed taxonomic distributions.
 
-    beta=None selects the hard-target auxiliary CE control.
-    Distances are normalized by their global maximum.
+    beta=None selects the hard-target auxiliary CE control. Distances are normalized by their global maximum.
     """
 
     def __init__(
@@ -26,20 +26,12 @@ class HierarchicalSoftLabelLoss(nn.Module):
         super().__init__()
 
         if beta is not None and (
-            isinstance(beta, bool)
-            or not isinstance(beta, Real)
-            or not math.isfinite(beta)
-            or beta < 0
+            isinstance(beta, bool) or not isinstance(beta, Real) or not math.isfinite(beta) or beta < 0
         ):
-            raise ValueError(
-                "soft_beta must be finite and nonnegative; "
-                "use beta=None for hard auxiliary CE"
-            )
+            raise ValueError("soft_beta must be finite and nonnegative; use beta=None for hard auxiliary CE")
 
         if distance_mode not in {"edge_count", "lca_height"}:
-            raise ValueError(
-                "soft_distance_mode must be edge_count or lca_height"
-            )
+            raise ValueError("soft_distance_mode must be edge_count or lca_height")
 
         taxonomy = Taxonomy.from_json(
             taxonomy_path,
@@ -66,9 +58,7 @@ class HierarchicalSoftLabelLoss(nn.Module):
             )
             distances = distances / (self.distance_scale or 1.0)
 
-            matrix = (
-                -self.beta * distances
-            ).softmax(dim=1).float()
+            matrix = (-self.beta * distances).softmax(dim=1).float()
 
         entropy = -torch.special.xlogy(
             matrix,
@@ -84,9 +74,7 @@ class HierarchicalSoftLabelLoss(nn.Module):
             "mode": "hard" if beta is None else "soft",
             "beta": self.beta,
             "distance_mode": self.distance_mode,
-            "distance_normalization": (
-                "global_max_over_detector_classes"
-            ),
+            "distance_normalization": ("global_max_over_detector_classes"),
             "distance_scale": self.distance_scale,
             "num_classes": self.num_classes,
             "true_class_mass_mean": diagonal.mean().item(),
@@ -112,23 +100,15 @@ class HierarchicalSoftLabelLoss(nn.Module):
         denominator: sum of native YOLO target scores.
         """
         if logits.ndim != 2 or logits.shape[1] != self.num_classes:
-            raise ValueError(
-                f"Expected foreground logits (N, {self.num_classes}), "
-                f"got {tuple(logits.shape)}"
-            )
+            raise ValueError(f"Expected foreground logits (N, {self.num_classes}), got {tuple(logits.shape)}")
 
         count = logits.shape[0]
 
         if targets.shape != (count,) or targets.dtype != torch.int64:
-            raise ValueError(
-                "Assigned foreground targets must be int64 "
-                "with shape (N,)"
-            )
+            raise ValueError("Assigned foreground targets must be int64 with shape (N,)")
 
         if quality_weights.shape != (count,):
-            raise ValueError(
-                "Foreground quality weights must have shape (N,)"
-            )
+            raise ValueError("Foreground quality weights must have shape (N,)")
 
         normalizer = torch.as_tensor(
             denominator,
@@ -137,23 +117,14 @@ class HierarchicalSoftLabelLoss(nn.Module):
         )
 
         if normalizer.numel() != 1:
-            raise ValueError(
-                "The assignment denominator must be a scalar"
-            )
+            raise ValueError("The assignment denominator must be a scalar")
 
-        normalizer = (
-            normalizer.detach()
-            .reshape(())
-            .clamp_min(1.0)
-        )
+        normalizer = normalizer.detach().reshape(()).clamp_min(1.0)
 
         if not count:
             zero = logits.float().sum() * 0.0
 
-            self.last_components = {
-                name: zero.detach()
-                for name in ("ce", "kl", "entropy")
-            }
+            self.last_components = {name: zero.detach() for name in ("ce", "kl", "entropy")}
 
             return zero
 
@@ -163,21 +134,13 @@ class HierarchicalSoftLabelLoss(nn.Module):
             dim=1,
         )
 
-        target_probabilities = (
-            self.soft_label_matrix
-            .index_select(0, targets)
-            .float()
-        )
+        target_probabilities = self.soft_label_matrix.index_select(0, targets).float()
 
-        per_assignment_ce = -(
-            target_probabilities * log_probabilities
-        ).sum(dim=1)
+        per_assignment_ce = -(target_probabilities * log_probabilities).sum(dim=1)
 
         quality = quality_weights.detach().float()
 
-        ce = (
-            quality * per_assignment_ce
-        ).sum() / normalizer
+        ce = (quality * per_assignment_ce).sum() / normalizer
 
         entropy = (
             quality
