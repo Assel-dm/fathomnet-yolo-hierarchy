@@ -10,10 +10,12 @@ import csv
 import hashlib
 import json
 import math
+import pickle
 import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path, PurePosixPath
 
 import yaml
@@ -48,15 +50,151 @@ def signature(cfg):
     return {key: value for key, value in cfg.items() if key not in ignored}
 
 
+def last_epoch(folder):
+    """Read the actual final training epoch, not the best checkpoint's epoch."""
+    path = folder / "results.csv"
+    if not path.is_file():
+        return None
+    with path.open(encoding="utf-8-sig", newline="") as stream:
+        rows = list(csv.DictReader(stream, skipinitialspace=True))
+    if not rows:
+        return None
+    try:
+        value = float(rows[-1]["epoch"])
+        return (
+            int(value)
+            if math.isfinite(value) and value.is_integer() and value > 0
+            else None
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def completion_hashes(folder):
+    return {
+        name: sha256(folder / name)
+        for name in ("args.yaml", "results.csv", "weights/best.pt")
+    }
+
+
+def record_completion(folder, cfg, reason="normal_exit"):
+    """Called only after the training subprocess returned successfully."""
+    epoch = last_epoch(folder)
+    if epoch is None or not (folder / "weights/best.pt").is_file():
+        raise ValueError(f"Successful training did not produce valid outputs: {folder}")
+    if not (folder / "weights/best.pt").stat().st_size:
+        raise ValueError(f"The best checkpoint is empty: {folder}")
+    receipt = {
+        "schema_version": 1,
+        "status": "completed",
+        "reason": reason,
+        "last_epoch": epoch,
+        "configured_epochs": int(cfg["epochs"]),
+        "sha256": completion_hashes(folder),
+    }
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=folder, delete=False
+        ) as stream:
+            temporary = Path(stream.name)
+            json.dump(receipt, stream, indent=2)
+            stream.write("\n")
+        temporary.replace(folder / ".campaign_completed.json")
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+def _finalized_checkpoint(folder, cfg, epoch):
+    """Recognize a pre-receipt run finalized by Ultralytics, on CPU only.
+
+    These are the user's own training checkpoints, loaded in the training
+    environment. Ultralytics finalizes last.pt for both normal and early stops.
+    An intermediate last.pt keeps its epoch and optimizer state.
+    """
+    path = folder / "weights/last.pt"
+    if not path.is_file():
+        return False
+    try:
+        import torch
+
+        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+        if (
+            not isinstance(checkpoint, dict)
+            or checkpoint.get("epoch") != -1
+            or "optimizer" not in checkpoint
+            or checkpoint["optimizer"] is not None
+            or checkpoint.get("model") is None
+        ):
+            return False
+        saved = checkpoint.get("train_args", {})
+        if not isinstance(saved, dict):
+            return False
+        if int(saved.get("seed", -1)) != int(cfg["seed"]) or int(
+            saved.get("epochs", -1)
+        ) != int(cfg["epochs"]):
+            return False
+        if (
+            Path(str(saved.get("data", ""))).expanduser().resolve()
+            != Path(str(cfg["data"])).expanduser().resolve()
+        ):
+            return False
+        for key in ("hxe_weight", "soft_weight"):
+            if not math.isclose(float(saved.get(key, 0)), float(cfg.get(key, 0))):
+                return False
+        if float(cfg.get("hxe_weight", 0)) and not math.isclose(
+            float(saved.get("hxe_alpha", -1)), float(cfg["hxe_alpha"])
+        ):
+            return False
+        history = checkpoint.get("train_results")
+        return not (
+            isinstance(history, dict)
+            and "epoch" in history
+            and (not history["epoch"] or int(float(history["epoch"][-1])) != epoch)
+        )
+    except (
+        ImportError,
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+        RuntimeError,
+        EOFError,
+        pickle.UnpicklingError,
+    ) as error:
+        print(f"Cannot verify finalized checkpoint {path}: {error}", file=sys.stderr)
+        return False
+
+
 def completed(folder, cfg):
     if (
         not (folder / "weights/best.pt").is_file()
         or not (folder / "results.csv").is_file()
     ):
         return False
-    with (folder / "results.csv").open(encoding="utf-8-sig", newline="") as stream:
-        rows = list(csv.DictReader(stream, skipinitialspace=True))
-    return bool(rows) and int(float(rows[-1]["epoch"])) >= int(cfg["epochs"])
+    epoch = last_epoch(folder)
+    if epoch is None or not (folder / "weights/best.pt").stat().st_size:
+        return False
+    if epoch >= int(cfg["epochs"]):
+        return True
+    receipt = folder / ".campaign_completed.json"
+    if receipt.is_file():
+        try:
+            status = json.loads(receipt.read_text(encoding="utf-8"))
+            if (
+                isinstance(status, dict)
+                and status.get("schema_version") == 1
+                and status.get("status") == "completed"
+                and status.get("last_epoch") == epoch
+                and status.get("configured_epochs") == int(cfg["epochs"])
+                and status.get("sha256") == completion_hashes(folder)
+            ):
+                return True
+        except (OSError, ValueError, TypeError):
+            pass
+    return _finalized_checkpoint(folder, cfg, epoch)
 
 
 def execute(command, dry):
@@ -323,7 +461,14 @@ def main():
                 ):
                     matching.append(folder)
         if matching:
-            folder = min(matching, key=lambda item: (item != ce, str(item)))
+            folder = min(
+                matching,
+                key=lambda item: (
+                    not item.is_relative_to(campaign / "detect"),
+                    item != ce,
+                    str(item),
+                ),
+            )
             label = f"alpha={alpha:g}, lambda={weight:g}" if weight else "native CE"
             print(f"Reusing trained run for {label}, seed={seed}: {folder}")
             evaluate(folder)
@@ -360,10 +505,10 @@ def main():
         if args.dry_run:
             evaluate(folder, prospective=True)
         else:
-            if not completed(folder, configuration(folder)):
-                raise ValueError(
-                    f"Training did not reach the configured epoch budget: {folder}"
-                )
+            cfg = configuration(folder)
+            record_completion(folder, cfg)
+            if not completed(folder, cfg):
+                raise ValueError(f"Training output could not be verified: {folder}")
             evaluate(folder)
 
     count = len(seeds) * (1 + len(args.alphas) * len(args.lambdas))
