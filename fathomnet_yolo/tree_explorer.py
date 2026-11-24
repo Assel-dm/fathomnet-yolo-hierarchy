@@ -1,12 +1,12 @@
-"""Create a standalone, offline taxonomy explorer from COCO and frozen WoRMS JSON"""
+"""Create a standalone, offline taxonomy explorer from COCO and frozen WoRMS JSON."""
 
 import argparse
-from collections import Counter, defaultdict
 import hashlib
 import json
 import os
-from pathlib import Path
 import tempfile
+from collections import Counter, defaultdict
+from pathlib import Path
 
 
 def read_json(path):
@@ -29,10 +29,7 @@ def indexed_records(records, field, label, string_ids=False):
         if not isinstance(record, dict):
             raise ValueError(f"Each {label} entry must be an object")
         identifier = record.get(field)
-        valid = (
-            isinstance(identifier, str) and bool(identifier.strip())
-            if string_ids else type(identifier) is int
-        )
+        valid = isinstance(identifier, str) and bool(identifier.strip()) if string_ids else type(identifier) is int
         if not valid or identifier in indexed:
             raise ValueError(f"{label}: invalid or duplicate {field}={identifier!r}")
         indexed[identifier] = record
@@ -137,15 +134,17 @@ def prepare_data(coco, taxonomy, class_map=None, title="FathomNet taxonomy explo
         category, entry = categories[category_id], by_category[category_id]
         node_id = entry["node_id"]
         accepted = source_nodes[node_id]["name"]
-        originals[node_id].append({
-            "coco_id": category_id,
-            "yolo_class_id": entry["class_id"],
-            "original_name": category["name"],
-            "retained_name": accepted,
-            "renamed": category["name"] != accepted,
-            "annotations": counts[category_id],
-            "images": len(category_images[category_id]),
-        })
+        originals[node_id].append(
+            {
+                "coco_id": category_id,
+                "yolo_class_id": entry["class_id"],
+                "original_name": category["name"],
+                "retained_name": accepted,
+                "renamed": category["name"] != accepted,
+                "annotations": counts[category_id],
+                "images": len(category_images[category_id]),
+            }
+        )
         direct_images[node_id].update(category_images[category_id])
 
     def build(node_id):
@@ -174,7 +173,7 @@ def prepare_data(coco, taxonomy, class_map=None, title="FathomNet taxonomy explo
         }, image_support
 
     tree, annotated_images = build(roots[0])
-    original_ids = set(by_category[category_id]["node_id"] for category_id in categories)
+    original_ids = {by_category[category_id]["node_id"] for category_id in categories}
     return {
         "title": title,
         "summary": {
@@ -195,14 +194,20 @@ def prepare_data(coco, taxonomy, class_map=None, title="FathomNet taxonomy explo
 def embedded_json(value):
     """Keep dataset names from terminating the inert JSON script element."""
     text = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
-    for char, escaped in (("&", "\\u0026"), ("<", "\\u003c"), (">", "\\u003e"),
-                          ("\u2028", "\\u2028"), ("\u2029", "\\u2029")):
+    for char, escaped in (
+        ("&", "\\u0026"),
+        ("<", "\\u003c"),
+        (">", "\\u003e"),
+        ("\u2028", "\\u2028"),
+        ("\u2029", "\\u2029"),
+    ):
         text = text.replace(char, escaped)
     return text
 
 
-def generate(coco_path, taxonomy_path, output_path, class_map_path=None,
-             title="FathomNet taxonomy explorer", assets_dir=None):
+def generate(
+    coco_path, taxonomy_path, output_path, class_map_path=None, title="FathomNet taxonomy explorer", assets_dir=None
+):
     """Generate one portable HTML document; inputs are only read."""
     coco_path, taxonomy_path, output_path = map(Path, (coco_path, taxonomy_path, output_path))
     assets_dir = Path(assets_dir) if assets_dir else Path(__file__).with_name("tree_explorer_assets")
@@ -238,8 +243,9 @@ def generate(coco_path, taxonomy_path, output_path, class_map_path=None,
     output_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = None
     try:
-        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", newline="\n",
-                                         dir=output_path.parent, suffix=".tmp", delete=False) as stream:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", newline="\n", dir=output_path.parent, suffix=".tmp", delete=False
+        ) as stream:
             temporary = Path(stream.name)
             stream.write(html)
         os.replace(temporary, output_path)
@@ -263,8 +269,10 @@ def main(argv=None):
     except (OSError, ValueError) as error:
         parser.exit(1, f"Error: {error}\n")
     print(f"HTML written to {args.output.resolve()}")
-    print(f"{summary['original_classes']} COCO classes; {summary['nodes']} taxonomic nodes; "
-          f"{summary['added_nodes']} added ancestors; {summary['renamed_classes']} different accepted names.")
+    print(
+        f"{summary['original_classes']} COCO classes; {summary['nodes']} taxonomic nodes; "
+        f"{summary['added_nodes']} added ancestors; {summary['renamed_classes']} different accepted names."
+    )
 
 
 if __name__ == "__main__":

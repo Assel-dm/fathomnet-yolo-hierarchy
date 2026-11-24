@@ -16,7 +16,6 @@ from fathomnet_yolo.build_taxonomy import (
     validate_class_map,
 )
 
-
 SPLITS = ("train", "val", "test")
 
 
@@ -160,7 +159,9 @@ def build_export_taxonomy(dataset_dir, resolution_path, client, output):
         name = category["name"]
         identifiers = ids_by_name[name]
         if len(identifiers) != 1:
-            raise ValueError(f"Expected one selected AphiaID for class {name!r}; check the resolution and dataset paths.")
+            raise ValueError(
+                f"Expected one selected AphiaID for class {name!r}; check the resolution and dataset paths."
+            )
         overrides[name] = {"aphia_id": next(iter(identifiers)), "reason": "Accepted AphiaID from the concept audit"}
     result = build_taxonomy(
         categories,

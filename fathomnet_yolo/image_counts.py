@@ -82,27 +82,19 @@ def _parse_labels(contents, label, class_ids):
             continue
         fields = line.split()
         if len(fields) != 5:
-            raise ValueError(
-                f"{label}:{line_number}: expected five YOLO detection fields"
-            )
+            raise ValueError(f"{label}:{line_number}: expected five YOLO detection fields")
         try:
             class_id = int(fields[0])
             values = tuple(float(value) for value in fields[1:])
         except ValueError as error:
-            raise ValueError(
-                f"{label}:{line_number}: malformed YOLO detection"
-            ) from error
+            raise ValueError(f"{label}:{line_number}: malformed YOLO detection") from error
         if class_id not in class_ids:
             raise ValueError(f"{label}:{line_number}: unknown class ID {class_id}")
         if any(not math.isfinite(value) or not 0 <= value <= 1 for value in values):
-            raise ValueError(
-                f"{label}:{line_number}: coordinates must be finite and normalized"
-            )
+            raise ValueError(f"{label}:{line_number}: coordinates must be finite and normalized")
         x, y, width, height = values
         if width <= 0 or height <= 0:
-            raise ValueError(
-                f"{label}:{line_number}: box width and height must be positive"
-            )
+            raise ValueError(f"{label}:{line_number}: box width and height must be positive")
         # The exporter writes twelve significant digits, so accept roundoff at
         # image borders while rejecting boxes that substantially cross them.
         tolerance = 1e-6
@@ -115,15 +107,11 @@ def _parse_labels(contents, label, class_ids):
             raise ValueError(f"{label}:{line_number}: box extends beyond the image")
         records.append((class_id, *(0.0 if value == 0 else value for value in values)))
     if not records:
-        raise ValueError(
-            f"{label}: a finalized annotated image requires at least one box"
-        )
+        raise ValueError(f"{label}: a finalized annotated image requires at least one box")
     # Sorting retains duplicate boxes but ignores annotation line order. Floats
     # are parsed before hashing so equivalent textual forms have equal meaning.
     signature = hashlib.sha256(
-        json.dumps(sorted(records), separators=(",", ":"), allow_nan=False).encode(
-            "utf-8"
-        )
+        json.dumps(sorted(records), separators=(",", ":"), allow_nan=False).encode("utf-8")
     ).hexdigest()
     return records, signature
 
@@ -144,19 +132,16 @@ def _protect_sources(output_path, paths):
             raise ValueError("The HTML output must not overwrite an input source file")
 
 
-def attach_export_image_counts(
-    data, dataset_dir, class_map=None, export_summary=None, output_path=None
-):
+def attach_export_image_counts(data, dataset_dir, class_map=None, export_summary=None, output_path=None):
     """Attach exact distinct-image counts and return audit sources and notes.
 
-    ``data`` is the shared explorer tree with ``originals`` records containing
-    ``yolo_class_id``, ``coco_id``, and ``original_name``. Validation finishes
-    before any values in ``data`` are changed. The final export's class_map.json
+    ``data`` is the shared explorer tree with ``originals`` records containing ``yolo_class_id``, ``coco_id``, and
+    ``original_name``. Validation finishes before any values in ``data`` are changed. The final export's class_map.json
     is always checked, even when an external class mapping was also supplied.
 
-    Split-list entries may contain the original server's absolute paths: only
-    their basenames are used, under images/{split} in ``dataset_dir``. An image
-    UUID may occur in multiple splits only if its complete annotation multiset
+    Split-list entries may contain the original server's absolute paths: only their basenames are used, under
+    images/{split} in ``dataset_dir``. An image UUID may occur in multiple splits only if its complete annotation
+    multiset
     agrees. All-split counts deduplicate such UUIDs and report their overlap.
     """
     directory = Path(dataset_dir).expanduser().resolve()
@@ -164,13 +149,8 @@ def attach_export_image_counts(
         raise ValueError("dataset_dir must be a finalized YOLO export directory")
     mapping_path = directory / "class_map.json"
     mapping_bytes = _read_bytes(mapping_path, "dataset class_map.json")
-    mapping = _class_mapping(
-        _read_json_bytes(mapping_bytes, "dataset class_map.json"), "Dataset class map"
-    )
-    if (
-        class_map is not None
-        and _class_mapping(class_map, "Provided class map") != mapping
-    ):
+    mapping = _class_mapping(_read_json_bytes(mapping_bytes, "dataset class_map.json"), "Dataset class map")
+    if class_map is not None and _class_mapping(class_map, "Provided class map") != mapping:
         raise ValueError("Dataset class map disagrees with the provided class map")
 
     sources = [_source("Final YOLO class mapping", "class_map.json", mapping_bytes)]
@@ -181,17 +161,13 @@ def attach_export_image_counts(
     if export_summary is None:
         summary_bytes = _read_bytes(summary_path, "dataset export_summary.json")
         export_summary = _read_json_bytes(summary_bytes, "dataset export_summary.json")
-        sources.append(
-            _source("Final export summary", "export_summary.json", summary_bytes)
-        )
+        sources.append(_source("Final export summary", "export_summary.json", summary_bytes))
     if not isinstance(export_summary, dict) or export_summary.get("status") not in {
         "ready",
         "ready_with_skipped_images",
     }:
         raise ValueError("Image counts require a completed export summary")
-    if _nonnegative_int(export_summary.get("classes"), "Export summary classes") != len(
-        mapping
-    ):
+    if _nonnegative_int(export_summary.get("classes"), "Export summary classes") != len(mapping):
         raise ValueError("Export summary class count disagrees with the final mapping")
 
     tree = data.get("tree") if isinstance(data, dict) else None
@@ -230,9 +206,7 @@ def attach_export_image_counts(
     if tree_mapping != mapping:
         raise ValueError("Dataset class map disagrees with the prepared taxonomy")
 
-    class_images = {
-        class_id: {split: set() for split in SPLITS} for class_id in mapping
-    }
+    class_images = {class_id: {split: set() for split in SPLITS} for class_id in mapping}
     selected_images = {split: set() for split in SPLITS}
     signatures = {}
     class_ids = set(mapping)
@@ -243,32 +217,22 @@ def attach_export_image_counts(
         stats = split_stats.get(split)
         if not isinstance(stats, dict):
             raise TypeError(f"Export summary is missing the {split} split")
-        expected_images = _nonnegative_int(
-            stats.get("exported_images"), f"{split} exported_images"
-        )
-        expected_boxes = _nonnegative_int(
-            stats.get("exported_boxes"), f"{split} exported_boxes"
-        )
+        expected_images = _nonnegative_int(stats.get("exported_images"), f"{split} exported_images")
+        expected_boxes = _nonnegative_int(stats.get("exported_boxes"), f"{split} exported_boxes")
         expected_counts = stats.get("exported_class_counts")
-        if not isinstance(expected_counts, dict) or set(expected_counts) - {
-            name for _, name in mapping.values()
-        }:
+        if not isinstance(expected_counts, dict) or set(expected_counts) - {name for _, name in mapping.values()}:
             raise ValueError(f"{split} requires valid final exported_class_counts")
         for name, count in expected_counts.items():
             _nonnegative_int(count, f"{split} exported count for {name}")
         if sum(expected_counts.values()) != expected_boxes:
-            raise ValueError(
-                f"{split} exported box total disagrees with its class counts"
-            )
+            raise ValueError(f"{split} exported box total disagrees with its class counts")
         list_name = f"splits/{split}.txt"
         list_path = directory / list_name
         input_paths.append(list_path)
         list_bytes = _read_bytes(list_path, list_name)
         sources.append(_source(f"Final {split} image selection", list_name, list_bytes))
         entries = []
-        for line_number, line in enumerate(
-            _decode(list_bytes, list_name).splitlines(), 1
-        ):
+        for line_number, line in enumerate(_decode(list_bytes, list_name).splitlines(), 1):
             if not line.strip():
                 continue
             basename = PurePosixPath(line.strip().replace("\\", "/")).name
@@ -276,26 +240,18 @@ def attach_export_image_counts(
             try:
                 canonical = str(UUID(identifier))
             except ValueError as error:
-                raise ValueError(
-                    f"{list_name}:{line_number}: expected an image UUID filename"
-                ) from error
+                raise ValueError(f"{list_name}:{line_number}: expected an image UUID filename") from error
             if identifier != canonical:
-                raise ValueError(
-                    f"{list_name}:{line_number}: image UUID must use its canonical spelling"
-                )
+                raise ValueError(f"{list_name}:{line_number}: image UUID must use its canonical spelling")
             if identifier in selected_images[split]:
-                raise ValueError(
-                    f"{list_name}:{line_number}: repeated image UUID in one split"
-                )
+                raise ValueError(f"{list_name}:{line_number}: repeated image UUID in one split")
             image_path = directory / "images" / split / basename
             if not image_path.is_file():
                 raise ValueError(f"Missing selected image images/{split}/{basename}")
             selected_images[split].add(identifier)
             entries.append((identifier, image_path))
         if len(entries) != expected_images:
-            raise ValueError(
-                f"{split} split-list image count disagrees with export_summary"
-            )
+            raise ValueError(f"{split} split-list image count disagrees with export_summary")
 
         actual_counts = Counter()
         label_digest = hashlib.sha256(b"fathomnet-yolo-label-stream-v1\0")
@@ -307,9 +263,7 @@ def attach_export_image_counts(
             records, signature = _parse_labels(label_bytes, label_name, class_ids)
             previous = signatures.get(identifier)
             if previous is not None and previous != signature:
-                raise ValueError(
-                    "The same image UUID has inconsistent annotations across splits"
-                )
+                raise ValueError("The same image UUID has inconsistent annotations across splits")
             signatures[identifier] = signature
             actual_counts.update(mapping[record[0]][1] for record in records)
             for class_id in {record[0] for record in records}:
@@ -319,12 +273,8 @@ def attach_export_image_counts(
             label_digest.update(encoded_name)
             label_digest.update(len(label_bytes).to_bytes(8, "big"))
             label_digest.update(label_bytes)
-        if sum(actual_counts.values()) != expected_boxes or actual_counts != Counter(
-            expected_counts
-        ):
-            raise ValueError(
-                f"{split} label box counts disagree with exported_class_counts"
-            )
+        if sum(actual_counts.values()) != expected_boxes or actual_counts != Counter(expected_counts):
+            raise ValueError(f"{split} label box counts disagree with exported_class_counts")
         sources.append(
             {
                 "role": f"Final {split} labels; framed name and byte stream, sorted by UUID",
@@ -350,9 +300,7 @@ def attach_export_image_counts(
                     record,
                     {
                         "images": len(set().union(*support.values())),
-                        "images_by_split": {
-                            split: len(support[split]) for split in SPLITS
-                        },
+                        "images_by_split": {split: len(support[split]) for split in SPLITS},
                     },
                 )
             )
@@ -371,9 +319,7 @@ def attach_export_image_counts(
 
     root_support = collect(tree)
     if any(root_support[split] != selected_images[split] for split in SPLITS):
-        raise ValueError(
-            "Taxonomy image support disagrees with the final selected images"
-        )
+        raise ValueError("Taxonomy image support disagrees with the final selected images")
     all_images = set().union(*selected_images.values())
     overlapping = sum(map(len, selected_images.values())) - len(all_images)
     for node in node_list:

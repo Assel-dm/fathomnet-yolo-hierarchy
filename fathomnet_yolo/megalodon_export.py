@@ -1,4 +1,4 @@
-"""Select fully labelled Megalodon images and export the original splits for YOLO."""
+"""Select fully labeled Megalodon images and export the original splits for YOLO."""
 
 import argparse
 import concurrent.futures
@@ -369,8 +369,7 @@ def export_images(output, selected, class_map, summary, fingerprint, workers, at
     # Rebuild class IDs and all labels from the validated train membership.
     train_classes = {name for image, _ in available["train"] for name, _ in image["labels"]}
     class_map = [
-        {"yolo_id": index, "category_id": index + 1, "name": name}
-        for index, name in enumerate(sorted(train_classes))
+        {"yolo_id": index, "category_id": index + 1, "name": name} for index, name in enumerate(sorted(train_classes))
     ]
     exclusions = []
     for split in ("val", "test"):
@@ -426,7 +425,9 @@ def main():
     )
     parser.add_argument("--output-dir", type=Path, required=True, help="Destination of the planned or exported dataset")
     parser.add_argument("--download", action="store_true", help="Download images and export YOLO files")
-    parser.add_argument("--skip-failed", action="store_true", help="Finalize the validated images if some downloads fail")
+    parser.add_argument(
+        "--skip-failed", action="store_true", help="Finalize the validated images if some downloads fail"
+    )
     parser.add_argument("--limit-per-split", type=int, help="Deterministic pilot cap; use a separate output directory")
     parser.add_argument("--workers", type=int, default=8, help="Number of simultaneous downloads")
     parser.add_argument("--attempts", type=int, default=3, help="Attempts per image source")
@@ -470,7 +471,14 @@ def main():
                         f"Empty selected splits: {', '.join(empty)}. Review the plan or raise the pilot limit."
                     )
                 export_images(
-                    output, selected, class_map, summary, fingerprint, args.workers, args.attempts, args.timeout,
+                    output,
+                    selected,
+                    class_map,
+                    summary,
+                    fingerprint,
+                    args.workers,
+                    args.attempts,
+                    args.timeout,
                     skip_failed=args.skip_failed,
                 )
             elif marker.exists():

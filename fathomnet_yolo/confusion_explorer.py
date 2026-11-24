@@ -9,15 +9,14 @@ No checkpoints, pickle objects, source images, or network resources are loaded.
 from __future__ import annotations
 
 import argparse
-from collections import Counter, defaultdict
 import hashlib
 import json
 import math
 import os
-from pathlib import Path, PurePosixPath
 import re
 import tempfile
-
+from collections import Counter, defaultdict
+from pathlib import Path, PurePosixPath
 
 _RELATIONS = {"exact", "predicted_ancestor", "predicted_descendant", "other_branch"}
 _DISTANCE_MODES = {"edge_count", "lca_height"}
@@ -69,7 +68,9 @@ def _bad_constant(value):
 
 def _read_json(path):
     try:
-        return json.loads(path.read_text(encoding="utf-8-sig"), object_pairs_hook=_strict_pairs, parse_constant=_bad_constant)
+        return json.loads(
+            path.read_text(encoding="utf-8-sig"), object_pairs_hook=_strict_pairs, parse_constant=_bad_constant
+        )
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise ValueError(f"Invalid JSON in {path.name}: {exc}") from exc
 
@@ -83,7 +84,10 @@ def _sha256(path):
 
 
 def _sha_text(value, label):
-    _require(isinstance(value, str) and re.fullmatch(r"[0-9a-fA-F]{64}", value) is not None, f"{label} must be a SHA-256 digest")
+    _require(
+        isinstance(value, str) and re.fullmatch(r"[0-9a-fA-F]{64}", value) is not None,
+        f"{label} must be a SHA-256 digest",
+    )
     return value.lower()
 
 
@@ -93,10 +97,18 @@ class _Taxonomy:
     def __init__(self, data, metadata):
         _mapping(data, "Taxonomy")
         _mapping(metadata, "Summary taxonomy metadata")
-        _require(type(data.get("schema_version")) is int and data["schema_version"] == 1, "Taxonomy schema_version must be 1")
-        _require(type(metadata.get("schema_version")) is int and metadata["schema_version"] == 1, "Summary taxonomy schema_version must be 1")
+        _require(
+            type(data.get("schema_version")) is int and data["schema_version"] == 1, "Taxonomy schema_version must be 1"
+        )
+        _require(
+            type(metadata.get("schema_version")) is int and metadata["schema_version"] == 1,
+            "Summary taxonomy schema_version must be 1",
+        )
         self.mode = metadata.get("distance_mode")
-        _require(isinstance(self.mode, str) and self.mode in _DISTANCE_MODES, "Recorded taxonomy distance_mode must be edge_count or lca_height")
+        _require(
+            isinstance(self.mode, str) and self.mode in _DISTANCE_MODES,
+            "Recorded taxonomy distance_mode must be edge_count or lca_height",
+        )
         source_mode = data.get("distance_mode", "edge_count")
         _require(isinstance(source_mode, str) and source_mode in _DISTANCE_MODES, "Invalid taxonomy distance_mode")
         _require(isinstance(data.get("nodes"), list) and data["nodes"], "Taxonomy requires nonempty nodes")
@@ -107,10 +119,17 @@ class _Taxonomy:
             _require(node_id not in self.nodes, f"Duplicate taxonomy node ID: {node_id}")
             _require("parent" in node, f"Missing parent field for node {node_id}")
             parent = node["parent"]
-            _require(parent is None or isinstance(parent, str) and parent.strip(), f"Invalid parent for node {node_id}")
+            _require(
+                parent is None or (isinstance(parent, str) and parent.strip()), f"Invalid parent for node {node_id}"
+            )
             rank = node.get("rank")
-            _require(rank is None or isinstance(rank, str) and rank.strip(), f"Invalid rank for node {node_id}")
-            self.nodes[node_id] = {"id": node_id, "parent": parent, "name": _text(node.get("name"), f"Node {node_id} name"), "rank": rank}
+            _require(rank is None or (isinstance(rank, str) and rank.strip()), f"Invalid rank for node {node_id}")
+            self.nodes[node_id] = {
+                "id": node_id,
+                "parent": parent,
+                "name": _text(node.get("name"), f"Node {node_id} name"),
+                "rank": rank,
+            }
         roots = [node_id for node_id, node in self.nodes.items() if node["parent"] is None]
         _require(len(roots) == 1, "Taxonomy must contain exactly one root")
         self.root_id = roots[0]
@@ -138,15 +157,32 @@ class _Taxonomy:
             _mapping(entry, "Taxonomy class")
             _integer(entry.get("class_id"), "Taxonomy class_id")
         raw_classes = sorted(raw_classes, key=lambda item: item["class_id"])
-        _require([entry["class_id"] for entry in raw_classes] == list(range(len(raw_classes))), "Taxonomy class IDs must be contiguous from zero")
+        _require(
+            [entry["class_id"] for entry in raw_classes] == list(range(len(raw_classes))),
+            "Taxonomy class IDs must be contiguous from zero",
+        )
         self.classes = []
         for entry in raw_classes:
             node_id = entry.get("node_id")
             _require(isinstance(node_id, str) and node_id in self.nodes, f"Unknown class node_id: {node_id}")
             name = _text(entry.get("name"), "Taxonomy class name")
-            accepted_name = _text(entry.get("accepted_name", self.nodes[node_id]["name"]), f"Accepted name for class {name}")
-            _require(accepted_name == self.nodes[node_id]["name"], f"Accepted name for class {name} differs from its mapped taxonomy node name")
-            self.classes.append({"id": entry["class_id"], "name": name, "accepted_name": accepted_name, "node_id": node_id, "rank": self.nodes[node_id]["rank"], "path": list(self.paths[node_id])})
+            accepted_name = _text(
+                entry.get("accepted_name", self.nodes[node_id]["name"]), f"Accepted name for class {name}"
+            )
+            _require(
+                accepted_name == self.nodes[node_id]["name"],
+                f"Accepted name for class {name} differs from its mapped taxonomy node name",
+            )
+            self.classes.append(
+                {
+                    "id": entry["class_id"],
+                    "name": name,
+                    "accepted_name": accepted_name,
+                    "node_id": node_id,
+                    "rank": self.nodes[node_id]["rank"],
+                    "path": list(self.paths[node_id]),
+                }
+            )
         self.names = [entry["name"] for entry in self.classes]
         self.class_nodes = [entry["node_id"] for entry in self.classes]
         _require(len(set(self.names)) == len(self.names), "Taxonomy class names must be unique")
@@ -156,9 +192,17 @@ class _Taxonomy:
         _require(metadata["num_nodes"] == len(self.nodes), "Taxonomy node count differs from summary")
         _require(metadata["num_classes"] == len(self.classes), "Taxonomy class count differs from summary")
         _require(metadata.get("class_names") == self.names, "Taxonomy class names/order differ from summary")
-        _require(metadata.get("class_node_ids") == self.class_nodes, "Taxonomy class node IDs/order differ from summary")
+        _require(
+            metadata.get("class_node_ids") == self.class_nodes, "Taxonomy class node IDs/order differ from summary"
+        )
         self.ranks = sorted({node["rank"] for node in self.nodes.values() if node["rank"] is not None})
-        self.ancestors = {rank: [next((node_id for node_id in self.paths[class_node] if self.nodes[node_id]["rank"] == rank), None) for class_node in self.class_nodes] for rank in self.ranks}
+        self.ancestors = {
+            rank: [
+                next((node_id for node_id in self.paths[class_node] if self.nodes[node_id]["rank"] == rank), None)
+                for class_node in self.class_nodes
+            ]
+            for rank in self.ranks
+        }
         self._pairs = {}
 
     def pair(self, target, prediction):
@@ -181,7 +225,12 @@ class _Taxonomy:
             relation = "predicted_descendant"
         else:
             relation = "other_branch"
-        result = {"edge_count": len(left) + len(right) - 2 * common, "lca_height": 0 if target == prediction else self.heights[lca_id], "relation": relation, "lca_id": lca_id}
+        result = {
+            "edge_count": len(left) + len(right) - 2 * common,
+            "lca_height": 0 if target == prediction else self.heights[lca_id],
+            "relation": relation,
+            "lca_id": lca_id,
+        }
         self._pairs[key] = result
         return result
 
@@ -189,9 +238,8 @@ class _Taxonomy:
 def aggregate_rows(rows, classes_count):
     """Aggregate prepared matches; rows are true classes, columns predictions.
 
-    Row and column pair fractions include exact-label matches in denominators.
-    Incoming error fractions use every matched prediction assigned to that class.
-    Undefined rates and severity with no mistakes are returned as ``None``.
+    Row and column pair fractions include exact-label matches in denominators. Incoming error fractions use every
+    matched prediction assigned to that class. Undefined rates and severity with no mistakes are returned as ``None``.
     """
     _integer(classes_count, "classes_count")
     matrix = [[0] * classes_count for _ in range(classes_count)]
@@ -213,7 +261,10 @@ def aggregate_rows(rows, classes_count):
         lca_id = _text(row.get("lca_id"), "Prepared lca_id")
         key = (target, prediction)
         metadata = (distance, relation, lca_id)
-        _require(key not in pair_metadata or pair_metadata[key] == metadata, "Inconsistent metadata for the same confusion pair")
+        _require(
+            key not in pair_metadata or pair_metadata[key] == metadata,
+            "Inconsistent metadata for the same confusion pair",
+        )
         pair_metadata[key] = metadata
         pair_counts[key] += 1
         matrix[target][prediction] += 1
@@ -230,27 +281,78 @@ def aggregate_rows(rows, classes_count):
         support = predicted_support[class_id]
         correct = matrix[class_id][class_id]
         incorrect = support - correct
-        receivers.append({"class_id": class_id, "incoming_errors": incorrect, "distinct_sources": len(sources[class_id]), "predicted_support": support, "correct": correct, "incorrect_fraction": incorrect / support if support else None})
+        receivers.append(
+            {
+                "class_id": class_id,
+                "incoming_errors": incorrect,
+                "distinct_sources": len(sources[class_id]),
+                "predicted_support": support,
+                "correct": correct,
+                "incorrect_fraction": incorrect / support if support else None,
+            }
+        )
     pairs = []
     for (target, prediction), count in sorted(pair_counts.items(), key=lambda item: (-item[1], item[0])):
         distance, relation, lca_id = pair_metadata[(target, prediction)]
-        pairs.append({"target": target, "prediction": prediction, "count": count, "row_fraction": count / row_support[target], "column_fraction": count / predicted_support[prediction], "distance": distance, "relation": relation, "lca_id": lca_id})
-    return {"population": population, "errors": errors, "correct": population - errors, "accuracy": (population - errors) / population if population else None, "ahd1": math.fsum(all_distances) / population if population else None, "severity": math.fsum(error_distances) / errors if errors else None, "matrix": matrix, "receivers": receivers, "pairs": pairs}
+        pairs.append(
+            {
+                "target": target,
+                "prediction": prediction,
+                "count": count,
+                "row_fraction": count / row_support[target],
+                "column_fraction": count / predicted_support[prediction],
+                "distance": distance,
+                "relation": relation,
+                "lca_id": lca_id,
+            }
+        )
+    return {
+        "population": population,
+        "errors": errors,
+        "correct": population - errors,
+        "accuracy": (population - errors) / population if population else None,
+        "ahd1": math.fsum(all_distances) / population if population else None,
+        "severity": math.fsum(error_distances) / errors if errors else None,
+        "matrix": matrix,
+        "receivers": receivers,
+        "pairs": pairs,
+    }
 
 
 def _classification_metrics(rows, taxonomy, mode):
     population = len(rows)
     errors = sum(row["target"] != row["prediction"] for row in rows)
     distances = [taxonomy.pair(row["target"], row["prediction"])[mode] for row in rows]
-    metrics = {"num_objects": population, "num_errors": errors, "top1_accuracy": (population - errors) / population if population else None, "top1_error": errors / population if population else None, "mistake_severity": math.fsum(distances) / errors if errors else (0.0 if population else None)}
+    metrics = {
+        "num_objects": population,
+        "num_errors": errors,
+        "top1_accuracy": (population - errors) / population if population else None,
+        "top1_error": errors / population if population else None,
+        "mistake_severity": math.fsum(distances) / errors if errors else (0.0 if population else None),
+    }
     for k in (1, 5, 20):
         width = min(k, len(taxonomy.classes))
-        metrics[f"top{k}_accuracy"] = sum(row["target"] in row["top_classes"][:width] for row in rows) / population if population else None
-        metrics[f"avg_hierarchical_distance@{k}"] = math.fsum(taxonomy.pair(row["target"], prediction)[mode] for row in rows for prediction in row["top_classes"][:width]) / (population * width) if population else None
+        metrics[f"top{k}_accuracy"] = (
+            sum(row["target"] in row["top_classes"][:width] for row in rows) / population if population else None
+        )
+        metrics[f"avg_hierarchical_distance@{k}"] = (
+            math.fsum(
+                taxonomy.pair(row["target"], prediction)[mode]
+                for row in rows
+                for prediction in row["top_classes"][:width]
+            )
+            / (population * width)
+            if population
+            else None
+        )
     for rank, ancestor_ids in taxonomy.ancestors.items():
         supported = [row for row in rows if ancestor_ids[row["target"]] is not None]
         metrics[f"{rank}_support"] = len(supported)
-        metrics[f"{rank}_accuracy_top1_ancestor"] = sum(ancestor_ids[row["target"]] == ancestor_ids[row["prediction"]] for row in supported) / len(supported) if supported else None
+        metrics[f"{rank}_accuracy_top1_ancestor"] = (
+            sum(ancestor_ids[row["target"]] == ancestor_ids[row["prediction"]] for row in supported) / len(supported)
+            if supported
+            else None
+        )
     return metrics
 
 
@@ -265,7 +367,11 @@ def _compare_metrics(computed, expected, label):
             equal = type(recorded) is int and recorded == actual
         else:
             try:
-                equal = type(recorded) in (int, float) and math.isfinite(recorded) and math.isclose(actual, recorded, rel_tol=_TOLERANCE, abs_tol=_TOLERANCE)
+                equal = (
+                    type(recorded) in (int, float)
+                    and math.isfinite(recorded)
+                    and math.isclose(actual, recorded, rel_tol=_TOLERANCE, abs_tol=_TOLERANCE)
+                )
             except OverflowError:
                 equal = False
         _require(equal, f"{label}.{key} does not reproduce: computed {actual!r}, recorded {recorded!r}")
@@ -286,36 +392,65 @@ def _training_args(path, summary):
     _require(type(args.get("seed")) is int, "Training seed must be an integer")
     checkpoint = _mapping(summary.get("checkpoint"), "Summary checkpoint")
     checkpoint_path = PurePosixPath(_text(checkpoint.get("path"), "Checkpoint path").replace("\\", "/"))
-    _require(checkpoint_path.parent.name == "weights", "Checkpoint path must identify a weights file inside the run directory")
+    _require(
+        checkpoint_path.parent.name == "weights",
+        "Checkpoint path must identify a weights file inside the run directory",
+    )
     run_name = checkpoint_path.parent.parent.name
-    _require(_text(args.get("name"), "Training name") == run_name, "Training args name differs from checkpoint run directory")
+    _require(
+        _text(args.get("name"), "Training name") == run_name, "Training args name differs from checkpoint run directory"
+    )
     encoded_hxe = re.fullmatch(r"(.+)_hxe_a([0-9]+(?:p[0-9]+)?)_w([0-9]+(?:p[0-9]+)?)_seed([0-9]+)", run_name)
     encoded_native = re.fullmatch(r"(.+)_native_seed([0-9]+)", run_name)
     parameters_reconciled = encoded_hxe is not None or encoded_native is not None
     if encoded_hxe:
         encoded_alpha = float(encoded_hxe.group(2).replace("p", "."))
         encoded_weight = float(encoded_hxe.group(3).replace("p", "."))
-        _require(math.isclose(alpha, encoded_alpha, rel_tol=1e-12, abs_tol=1e-12), "Training hxe_alpha differs from the value encoded in the run name")
-        _require(math.isclose(weight, encoded_weight, rel_tol=1e-12, abs_tol=1e-12), "Training hxe_weight differs from the value encoded in the run name")
-        _require(args["seed"] == int(encoded_hxe.group(4)), "Training seed differs from the value encoded in the run name")
+        _require(
+            math.isclose(alpha, encoded_alpha, rel_tol=1e-12, abs_tol=1e-12),
+            "Training hxe_alpha differs from the value encoded in the run name",
+        )
+        _require(
+            math.isclose(weight, encoded_weight, rel_tol=1e-12, abs_tol=1e-12),
+            "Training hxe_weight differs from the value encoded in the run name",
+        )
+        _require(
+            args["seed"] == int(encoded_hxe.group(4)), "Training seed differs from the value encoded in the run name"
+        )
     elif encoded_native:
         _require(weight == 0, "A native run name requires hxe_weight=0")
-        _require(args["seed"] == int(encoded_native.group(2)), "Training seed differs from the value encoded in the native run name")
+        _require(
+            args["seed"] == int(encoded_native.group(2)),
+            "Training seed differs from the value encoded in the native run name",
+        )
     method = "native" if weight == 0 else ("auxiliary" if alpha == 0 else "hxe")
-    run = {"name": run_name, "model": _text(args.get("model"), "Training model"), "method": method, "alpha": alpha, "lambda": weight, "seed": args["seed"], "split": _text(summary.get("split"), "Evaluation split"), "checkpoint_sha256": _sha_text(checkpoint.get("sha256"), "Checkpoint SHA-256")}
+    run = {
+        "name": run_name,
+        "model": _text(args.get("model"), "Training model"),
+        "method": method,
+        "alpha": alpha,
+        "lambda": weight,
+        "seed": args["seed"],
+        "split": _text(summary.get("split"), "Evaluation split"),
+        "checkpoint_sha256": _sha_text(checkpoint.get("sha256"), "Checkpoint SHA-256"),
+    }
     return run, parameters_reconciled
 
 
 def load_data(matches_path, summary_path, taxonomy_path, args_path, allow_compatible_taxonomy=False):
     """Load, validate and aggregate one exported evaluation without model loads.
 
-    Taxonomy bytes must match the evaluation's recorded SHA-256 by default.
-    The explicit compatibility override is accepted only after class metadata,
-    every exported top-k/rank/distance metric, and population identities pass.
-    It never certifies a different file as the exact evaluation taxonomy.
+    Taxonomy bytes must match the evaluation's recorded SHA-256 by default. The explicit compatibility override is
+    accepted only after class metadata, every exported top-k/rank/distance metric, and population identities pass. It
+    never certifies a different file as the exact evaluation taxonomy.
     """
     _require(type(allow_compatible_taxonomy) is bool, "allow_compatible_taxonomy must be a boolean")
-    paths = {"matches": Path(matches_path), "evaluation_summary": Path(summary_path), "taxonomy": Path(taxonomy_path), "training_args": Path(args_path)}
+    paths = {
+        "matches": Path(matches_path),
+        "evaluation_summary": Path(summary_path),
+        "taxonomy": Path(taxonomy_path),
+        "training_args": Path(args_path),
+    }
     for role, path in paths.items():
         _require(path.is_file(), f"Missing {role} file: {path}")
     summary = _mapping(_read_json(paths["evaluation_summary"]), "Evaluation summary")
@@ -324,7 +459,10 @@ def load_data(matches_path, summary_path, taxonomy_path, args_path, allow_compat
     expected_taxonomy_sha = _sha_text(taxonomy_record.get("sha256"), "Recorded taxonomy SHA-256")
     actual_taxonomy_sha = _sha256(paths["taxonomy"])
     hash_matches = actual_taxonomy_sha == expected_taxonomy_sha
-    _require(hash_matches or allow_compatible_taxonomy, "Taxonomy SHA-256 differs from the evaluation record. Use --allow-compatible-taxonomy only to permit a file that passes all strict compatibility checks.")
+    _require(
+        hash_matches or allow_compatible_taxonomy,
+        "Taxonomy SHA-256 differs from the evaluation record. Use --allow-compatible-taxonomy only to permit a file that passes all strict compatibility checks.",
+    )
     taxonomy = _Taxonomy(_read_json(paths["taxonomy"]), hierarchy.get("taxonomy"))
     run, parameters_reconciled = _training_args(paths["training_args"], summary)
     protocol = _mapping(hierarchy.get("protocol"), "Hierarchy protocol")
@@ -351,7 +489,10 @@ def load_data(matches_path, summary_path, taxonomy_path, args_path, allow_compat
         prediction = _integer(raw.get("predicted_class"), f"Match {index} predicted_class")
         _require(target < count and prediction < count, f"Match {index} class ID outside taxonomy")
         ranking = raw.get("top20_classes")
-        _require(isinstance(ranking, list) and ranking_width <= len(ranking) <= count, f"Match {index} must export at least the first {ranking_width} ranked labels")
+        _require(
+            isinstance(ranking, list) and ranking_width <= len(ranking) <= count,
+            f"Match {index} must export at least the first {ranking_width} ranked labels",
+        )
         for class_id in ranking:
             _integer(class_id, f"Match {index} ranked class ID")
             _require(class_id < count, f"Match {index} ranked class ID outside taxonomy")
@@ -362,53 +503,135 @@ def load_data(matches_path, summary_path, taxonomy_path, args_path, allow_compat
         _require(confidence >= minimum_confidence, f"Match {index} confidence is below the diagnostic threshold")
         _require(iou >= minimum_iou, f"Match {index} IoU is below the matching threshold")
         pair = taxonomy.pair(target, prediction)
-        rows.append({"id": index, "image": image, "gt_index": gt_index, "target": target, "prediction": prediction, "confidence": confidence, "iou": iou, "distance": pair[taxonomy.mode], "relation": pair["relation"], "lca_id": pair["lca_id"], "top_classes": list(ranking)})
+        rows.append(
+            {
+                "id": index,
+                "image": image,
+                "gt_index": gt_index,
+                "target": target,
+                "prediction": prediction,
+                "confidence": confidence,
+                "iou": iou,
+                "distance": pair[taxonomy.mode],
+                "relation": pair["relation"],
+                "lca_id": pair["lca_id"],
+                "top_classes": list(ranking),
+            }
+        )
     reference_metrics = _mapping(hierarchy.get("metrics"), "Hierarchy metrics")
-    required_counts = ("num_images", "num_gt", "num_predictions", "num_matched", "num_missed", "num_unmatched_predictions")
+    required_counts = (
+        "num_images",
+        "num_gt",
+        "num_predictions",
+        "num_matched",
+        "num_missed",
+        "num_unmatched_predictions",
+    )
     for key in required_counts:
         _integer(reference_metrics.get(key), f"Hierarchy metrics.{key}")
     population = len(rows)
     _require(reference_metrics["num_matched"] == population, "Match row count differs from num_matched")
-    _require(reference_metrics["num_gt"] == population + reference_metrics["num_missed"], "num_gt must equal num_matched + num_missed")
-    _require(reference_metrics["num_predictions"] == population + reference_metrics["num_unmatched_predictions"], "num_predictions must equal num_matched + num_unmatched_predictions")
-    _require(reference_metrics["num_images"] >= len({row["image"] for row in rows}), "num_images is smaller than the number of matched image identities")
+    _require(
+        reference_metrics["num_gt"] == population + reference_metrics["num_missed"],
+        "num_gt must equal num_matched + num_missed",
+    )
+    _require(
+        reference_metrics["num_predictions"] == population + reference_metrics["num_unmatched_predictions"],
+        "num_predictions must equal num_matched + num_unmatched_predictions",
+    )
+    _require(
+        reference_metrics["num_images"] >= len({row["image"] for row in rows}),
+        "num_images is smaller than the number of matched image identities",
+    )
     computed = _classification_metrics(rows, taxonomy, taxonomy.mode)
     computed["mean_matched_iou"] = math.fsum(row["iou"] for row in rows) / population if population else None
     computed["matched_rate"] = population / reference_metrics["num_gt"] if reference_metrics["num_gt"] else None
-    computed["prediction_matched_rate"] = population / reference_metrics["num_predictions"] if reference_metrics["num_predictions"] else None
+    computed["prediction_matched_rate"] = (
+        population / reference_metrics["num_predictions"] if reference_metrics["num_predictions"] else None
+    )
     _compare_metrics(computed, reference_metrics, "Hierarchy metrics")
     alternative = hierarchy.get("alternative_distance")
     if alternative is not None:
         _mapping(alternative, "Alternative distance")
         alternative_mode = alternative.get("mode")
-        _require(isinstance(alternative_mode, str) and alternative_mode in _DISTANCE_MODES and alternative_mode != taxonomy.mode, "Alternative distance must identify the other supported distance mode")
+        _require(
+            isinstance(alternative_mode, str)
+            and alternative_mode in _DISTANCE_MODES
+            and alternative_mode != taxonomy.mode,
+            "Alternative distance must identify the other supported distance mode",
+        )
         alternative_computed = _classification_metrics(rows, taxonomy, alternative_mode)
         alternative_computed.update({key: reference_metrics[key] for key in required_counts})
         for key in ("mean_matched_iou", "matched_rate", "prediction_matched_rate"):
             alternative_computed[key] = computed[key]
         _compare_metrics(alternative_computed, alternative.get("metrics"), "Alternative distance metrics")
     aggregates = aggregate_rows(rows, count)
-    checks = ["Taxonomy schema, node IDs, rooted acyclic tree, explicit ranks and class mappings validated.", "Taxonomy class names, node IDs, ordering and counts match the evaluation metadata.", "Match image/ground-truth identities are unique; class IDs, rankings, confidences, IoUs and protocol thresholds validated.", "Matched population, exact errors, top-k accuracy, AHD@1/5/20, mistake severity, rank support/accuracy and mean IoU reproduce the evaluation within 1e-9.", "Ground-truth and prediction count identities and matched rates reproduce the evaluation.", "Training arguments use safe YAML; run name agrees with the checkpoint directory."]
+    checks = [
+        "Taxonomy schema, node IDs, rooted acyclic tree, explicit ranks and class mappings validated.",
+        "Taxonomy class names, node IDs, ordering and counts match the evaluation metadata.",
+        "Match image/ground-truth identities are unique; class IDs, rankings, confidences, IoUs and protocol thresholds validated.",
+        "Matched population, exact errors, top-k accuracy, AHD@1/5/20, mistake severity, rank support/accuracy and mean IoU reproduce the evaluation within 1e-9.",
+        "Ground-truth and prediction count identities and matched rates reproduce the evaluation.",
+        "Training arguments use safe YAML; run name agrees with the checkpoint directory.",
+    ]
     if alternative is not None:
         checks.append("The alternative distance mode and its exported metrics also reproduce within 1e-9.")
-    notes = ["Confusions and filtered statistics describe geometrically matched objects only; native detection AP uses its separate evaluation protocol.", "Complete image, missed-object and unmatched-prediction totals are taken from the evaluation summary; exported match rows cannot independently reconstruct those totals.", "Ranking scores, score ties and the geometric matching procedure cannot be rechecked because full score vectors, boxes and prediction identities are not exported.", "Mistake severity is undefined when a selected population contains no exact-label errors."]
-    provenance_notes = ["Only exported JSON/YAML records and the local taxonomy were read. No checkpoint, pickle, source image or network request was used.", "Image paths are retained as case identifiers; images are not embedded."]
+    notes = [
+        "Confusions and filtered statistics describe geometrically matched objects only; native detection AP uses its separate evaluation protocol.",
+        "Complete image, missed-object and unmatched-prediction totals are taken from the evaluation summary; exported match rows cannot independently reconstruct those totals.",
+        "Ranking scores, score ties and the geometric matching procedure cannot be rechecked because full score vectors, boxes and prediction identities are not exported.",
+        "Mistake severity is undefined when a selected population contains no exact-label errors.",
+    ]
+    provenance_notes = [
+        "Only exported JSON/YAML records and the local taxonomy were read. No checkpoint, pickle, source image or network request was used.",
+        "Image paths are retained as case identifiers; images are not embedded.",
+    ]
     if parameters_reconciled:
         checks.append("Training arguments agree with the parameters encoded in the recognized run naming convention.")
     else:
-        notes.append("The custom run name does not encode parameters in a recognized convention; alpha, weight and seed are taken from training arguments and cannot be independently reconciled against the run name.")
+        notes.append(
+            "The custom run name does not encode parameters in a recognized convention; alpha, weight and seed are taken from training arguments and cannot be independently reconciled against the run name."
+        )
     if hash_matches:
         checks.append("Taxonomy file SHA-256 matches the exact file recorded by the evaluation.")
     else:
         note = f"Taxonomy SHA-256 differs: recorded {expected_taxonomy_sha}; supplied {actual_taxonomy_sha}. The explicit compatibility override was used after all strict metadata and metric checks passed. This file is compatible with these exported diagnostics but is not certified as the exact evaluation taxonomy."
         notes.append(note)
         provenance_notes.append(note)
-    return {"title": "FathomNet confusion explorer", "run": run, "classes": taxonomy.classes, "taxonomy": {"nodes": list(taxonomy.nodes.values()), "root_id": taxonomy.root_id, "distance_mode": taxonomy.mode}, "matches": rows, "reference": {"protocol": protocol, "metrics": reference_metrics, "native_metrics": _mapping(summary.get("native_detection_metrics"), "Native detection metrics")}, "validation": {"checks": checks, "notes": notes}, "provenance": {"sources": [{"role": role, "name": path.name, "sha256": _sha256(path)} for role, path in paths.items()], "notes": provenance_notes}, "aggregates": aggregates}
+    return {
+        "title": "FathomNet confusion explorer",
+        "run": run,
+        "classes": taxonomy.classes,
+        "taxonomy": {
+            "nodes": list(taxonomy.nodes.values()),
+            "root_id": taxonomy.root_id,
+            "distance_mode": taxonomy.mode,
+        },
+        "matches": rows,
+        "reference": {
+            "protocol": protocol,
+            "metrics": reference_metrics,
+            "native_metrics": _mapping(summary.get("native_detection_metrics"), "Native detection metrics"),
+        },
+        "validation": {"checks": checks, "notes": notes},
+        "provenance": {
+            "sources": [{"role": role, "name": path.name, "sha256": _sha256(path)} for role, path in paths.items()],
+            "notes": provenance_notes,
+        },
+        "aggregates": aggregates,
+    }
 
 
 def _safe_json(payload):
     """A JSON literal safe inside an inline script, including hostile labels."""
-    return json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")).replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
+    return (
+        json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+        .replace("&", "\\u0026")
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
+    )
 
 
 def _protect_inputs(output_path, input_paths):
@@ -416,14 +639,18 @@ def _protect_inputs(output_path, input_paths):
     for path in input_paths:
         _require(destination != path.resolve(), f"Output must not overwrite input file {path.name}")
         if output_path.exists() and path.exists():
-            _require(not os.path.samefile(output_path, path), f"Output must not overwrite an input hard link: {path.name}")
+            _require(
+                not os.path.samefile(output_path, path), f"Output must not overwrite an input hard link: {path.name}"
+            )
 
 
-def generate(matches_path, summary_path, taxonomy_path, args_path, output_path, assets_dir=None, allow_compatible_taxonomy=False):
+def generate(
+    matches_path, summary_path, taxonomy_path, args_path, output_path, assets_dir=None, allow_compatible_taxonomy=False
+):
     """Validate inputs and atomically write one self-contained offline HTML file.
 
-    The assets directory contains ``template.html`` and ``d3.v7.9.0.min.js``.
-    The template must contain ``__D3_SOURCE__`` and ``__CONFUSION_DATA__`` once
+    The assets directory contains ``template.html`` and ``d3.v7.9.0.min.js``. The template must contain
+    ``__D3_SOURCE__`` and ``__CONFUSION_DATA__`` once
     each. Returns the absolute output :class:`pathlib.Path`.
     """
     output = Path(output_path)
@@ -431,7 +658,9 @@ def generate(matches_path, summary_path, taxonomy_path, args_path, output_path, 
     template_path, d3_path = assets / "template.html", assets / "d3.v7.9.0.min.js"
     inputs = [Path(matches_path), Path(summary_path), Path(taxonomy_path), Path(args_path), template_path, d3_path]
     _protect_inputs(output, inputs)
-    payload = load_data(matches_path, summary_path, taxonomy_path, args_path, allow_compatible_taxonomy=allow_compatible_taxonomy)
+    payload = load_data(
+        matches_path, summary_path, taxonomy_path, args_path, allow_compatible_taxonomy=allow_compatible_taxonomy
+    )
     for path in (template_path, d3_path):
         _require(path.is_file(), f"Missing explorer asset: {path}")
     template = template_path.read_text(encoding="utf-8-sig")
@@ -444,7 +673,15 @@ def generate(matches_path, summary_path, taxonomy_path, args_path, output_path, 
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = None
     try:
-        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", newline="\n", prefix=".confusion-explorer-", suffix=".tmp", dir=output.parent, delete=False) as stream:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="\n",
+            prefix=".confusion-explorer-",
+            suffix=".tmp",
+            dir=output.parent,
+            delete=False,
+        ) as stream:
             temporary = Path(stream.name)
             stream.write(html)
             stream.flush()
@@ -460,14 +697,30 @@ def generate(matches_path, summary_path, taxonomy_path, args_path, output_path, 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--evaluation", required=True, type=Path, help="Directory containing hierarchy_matches.json and evaluation_summary.json")
+    parser.add_argument(
+        "--evaluation",
+        required=True,
+        type=Path,
+        help="Directory containing hierarchy_matches.json and evaluation_summary.json",
+    )
     parser.add_argument("--taxonomy", required=True, type=Path, help="Taxonomy JSON used by the exported evaluation")
     parser.add_argument("--args", required=True, type=Path, help="Training args.yaml for the checkpoint run")
     parser.add_argument("--output", required=True, type=Path, help="Self-contained HTML output path")
-    parser.add_argument("--allow-compatible-taxonomy", action="store_true", help="Allow a taxonomy SHA mismatch only after every strict metadata and metric check passes")
+    parser.add_argument(
+        "--allow-compatible-taxonomy",
+        action="store_true",
+        help="Allow a taxonomy SHA mismatch only after every strict metadata and metric check passes",
+    )
     options = parser.parse_args(argv)
     try:
-        output = generate(options.evaluation / "hierarchy_matches.json", options.evaluation / "evaluation_summary.json", options.taxonomy, options.args, options.output, allow_compatible_taxonomy=options.allow_compatible_taxonomy)
+        output = generate(
+            options.evaluation / "hierarchy_matches.json",
+            options.evaluation / "evaluation_summary.json",
+            options.taxonomy,
+            options.args,
+            options.output,
+            allow_compatible_taxonomy=options.allow_compatible_taxonomy,
+        )
     except (OSError, ValueError) as exc:
         parser.error(str(exc))
     print(f"Wrote {output}")
